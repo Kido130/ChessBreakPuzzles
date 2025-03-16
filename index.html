@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Puzzles</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Chess Puzzles</h1>
+            <div class="user-info">
+                <div class="rating">Rating: <span id="userRating">1500</span></div>
+                <div class="puzzles-solved">Puzzles Solved: <span id="puzzlesSolved">0</span></div>
+            </div>
+        </header>
+        
+        <main>
+            <div class="chessboard-container">
+                <div id="chessboard" class="chessboard"></div>
+                <div class="controls">
+                    <button id="resetBtn">Reset Position</button>
+                    <button id="nextPuzzleBtn">Next Puzzle</button>
+                </div>
+            </div>
+            
+            <div class="puzzle-info">
+                <h2>Current Puzzle</h2>
+                <p id="puzzleDescription">Make the best move for <span id="sideToMove">white</span>.</p>
+                <div id="message" class="message"></div>
+            </div>
+        </main>
+        
+        <footer>
+            <p>Chess Puzzles - Based on Lichess Puzzle Database</p>
+        </footer>
+    </div>
+    
+    <script src="chess.js"></script>
+    <script src="app.js"></script>
+</body>
+</html> 
