@@ -39,120 +39,90 @@ main {
 .chessboard-container {
     flex: 1;
     min-width: 400px;
+    position: relative;
+    padding: 20px 15px 15px 20px;
 }
 
-/* Chessboard styling */
 .chessboard {
     width: 100%;
     aspect-ratio: 1/1;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(8, 1fr);
+    border: 5px solid #8B4513;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
     position: relative;
-}
-
-/* Lichess-style board container */
-.cg-wrap {
-    position: relative;
-    width: 100%;
-    height: 100%;
-}
-
-cg-container {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    display: block;
-    top: 0;
-}
-
-cg-board {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-size: cover;
-    background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4MCA4MCI+PGcgZmlsbD0iI0YwRDlCNSI+PHBhdGggZD0iTTAsMGg4MHY4MEgwVjB6Ii8+PC9nPjxnIGZpbGw9IiNCNTg4NjMiPjxwYXRoIGQ9Ik0wLDBoMTB2MTBIMFYweiIvPjxwYXRoIGQ9Ik0yMCwwaDF2MTBIMjBWMHoiLz48cGF0aCBkPSJNNDAsMGgxMHYxMEg0MFYweiIvPjxwYXRoIGQ9Ik02MCwwaDF2MTBINjBWMHoiLz48cGF0aCBkPSJNMTAsMTBoMTB2MTBIMTBWMTBaIi8+PHBhdGggZD0iTTMwLDEwaDEwdjEwSDMwVjEwWiIvPjxwYXRoIGQ9Ik01MCwxMGgxMHYxMEg1MFYxMFoiLz48cGF0aCBkPSJNNzAsMTBoMTB2MTBINzBWMTBaIi8+PHBhdGggZD0iTTAsMjBoMTB2MTBIMFYyMHoiLz48cGF0aCBkPSJNMjAsMjBoMTB2MTBIMjBWMjB6Ii8+PHBhdGggZD0iTTQwLDIwaDEwdjEwSDQwVjIweiIvPjxwYXRoIGQ9Ik02MCwyMGgxMHYxMEg2MFYyMHoiLz48cGF0aCBkPSJNMTAsMzBoMTB2MTBIMTBWMzBaIi8+PHBhdGggZD0iTTMwLDMwaDEwdjEwSDMwVjMwWiIvPjxwYXRoIGQ9Ik01MCwzMGgxMHYxMEg1MFYzMFoiLz48cGF0aCBkPSJNNzAsMzBoMTB2MTBINzBWMzBaIi8+PHBhdGggZD0iTTAsMzgwaDEwdjEwSDBWNDB6Ii8+PHBhdGggZD0iTTIwLDQwaDEwdjEwSDIwVjQweiIvPjxwYXRoIGQ9Ik00MCw0MGgxMHYxMEg0MFY0MHoiLz48cGF0aCBkPSJNNjAsNDBoMTB2MTBINjBWNDB6Ii8+PHBhdGggZD0iTTEwLDUwaDEwdjEwSDEwVjUwWiIvPjxwYXRoIGQ9Ik0zMCw1MGgxMHYxMEgzMFY1MFoiLz48cGF0aCBkPSJNNTAsNTBoMTB2MTBINTBWNTBaIi8+PHBhdGggZD0iTTcwLDUwaDEwdjEwSDcwVjUwWiIvPjxwYXRoIGQ9Ik0wLDYwaDEwdjEwSDBWNjB6Ii8+PHBhdGggZD0iTTIwLDYwaDEwdjEwSDIwVjYweiIvPjxwYXRoIGQ9Ik00MCw2MGgxMHYxMEg0MFY2MHoiLz48cGF0aCBkPSJNNjAsNjBoMTB2MTBINjBWNjB6Ii8+PHBhdGggZD0iTTEwLDcwaDEwdjEwSDEwVjcwWiIvPjxwYXRoIGQ9Ik0zMCw3MGgxMHYxMEgzMFY3MFoiLz48cGF0aCBkPSJNNTAsNzBoMTB2MTBINTBWNzBaIi8+PHBhdGggZD0iTTcwLDcwaDEwdjEwSDcwVjcwWiIvPjwvZz48L3N2Zz4=');
     user-select: none;
 }
 
-/* Square styling */
-square {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 12.5%;
-    height: 12.5%;
-    pointer-events: none;
+.square {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
-square.last-move {
+.square.white {
+    background-color: #F0D9B5;
+}
+
+.square.black {
+    background-color: #B58863;
+}
+
+.square.selected {
     background-color: rgba(155, 199, 0, 0.41);
 }
 
-square.selected {
-    background-color: rgba(20, 85, 155, 0.5);
-}
-
-/* Piece styling */
-piece {
+.square.legal-move::before {
+    content: "";
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 12.5%;
-    height: 12.5%;
-    background-size: cover;
+    width: 25%;
+    height: 25%;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.2);
     z-index: 2;
-    pointer-events: auto;
-    will-change: transform;
-    cursor: pointer;
 }
 
-/* Ghost piece for dragging */
-piece.ghost {
-    opacity: 0.8;
-    z-index: 10;
-}
-
-/* Coordinates */
-.coords {
+.square.legal-capture::before {
+    content: "";
     position: absolute;
-    display: flex;
+    width: 80%;
+    height: 80%;
+    border-radius: 50%;
+    border: 4px solid rgba(0, 0, 0, 0.2);
+    box-sizing: border-box;
+    z-index: 2;
+}
+
+.square.highlight-source {
+    background-color: rgba(155, 199, 0, 0.41);
+}
+
+.square.highlight-target {
+    background-color: rgba(155, 199, 0, 0.41);
+}
+
+.square.highlight-check {
+    background-color: rgba(255, 80, 80, 0.3);
+}
+
+.piece {
+    width: 80%;
+    height: 80%;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    cursor: pointer;
+    z-index: 3;
+    position: absolute;
+    transition: transform 0.1s;
+}
+
+.piece.dragging {
+    z-index: 10;
     pointer-events: none;
-    user-select: none;
-    font-size: 12px;
-    font-weight: bold;
-    color: rgba(0, 0, 0, 0.6);
-}
-
-.coords.ranks {
-    flex-direction: column-reverse;
-    top: 0;
-    right: -15px;
-    height: 100%;
-    width: 15px;
-}
-
-.coords.files {
-    flex-direction: row;
-    bottom: -15px;
-    left: 0;
-    width: 100%;
-    height: 15px;
-}
-
-.coords coord {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-/* Set orientation */
-.orientation-black cg-board {
-    transform: rotate(180deg);
-}
-
-.orientation-black piece {
-    transform-origin: 50%, 50%;
+    opacity: 0.85;
 }
 
 .controls {
@@ -246,4 +216,74 @@ footer {
 
 .piece.moving {
     animation: movePiece 0.3s ease;
+}
+
+/* Rank and file labels */
+.coords {
+    position: absolute;
+    display: flex;
+    pointer-events: none;
+    user-select: none;
+    font-size: 12px;
+    font-weight: bold;
+    color: rgba(0, 0, 0, 0.6);
+}
+
+.coords.ranks {
+    flex-direction: column-reverse;
+    top: 0;
+    right: -15px;
+    height: 100%;
+    width: 15px;
+}
+
+.coords.files {
+    flex-direction: row;
+    bottom: -15px;
+    left: 0;
+    width: 100%;
+    height: 15px;
+}
+
+.coords coord {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Coordinates styling */
+.coordinates-rank {
+    position: absolute;
+    left: 5px;
+    top: 20px;
+    bottom: 15px;
+    display: flex;
+    flex-direction: column-reverse;
+    justify-content: space-around;
+    font-size: 12px;
+    color: #876741;
+    font-weight: bold;
+}
+
+.coordinates-file {
+    position: absolute;
+    bottom: 0;
+    left: 20px;
+    right: 15px;
+    display: flex;
+    justify-content: space-around;
+    font-size: 12px;
+    color: #876741;
+    font-weight: bold;
+}
+
+/* Animation for move highlights */
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+.square.fade-out {
+    animation: fadeOut 1s ease-out forwards;
 } 

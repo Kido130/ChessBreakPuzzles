@@ -7,10 +7,10 @@ class ChessBoard {
     constructor(element) {
         this.element = element;
         this.selectedSquare = null;
+        this.draggedPiece = null;
+        this.draggedPieceStartPosition = null;
         this.position = {};
         this.sideToMove = 'w';
-        this.orientation = 'white'; // 'white' or 'black'
-        this.lastMove = null;
         this.files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
         this.ranks = ['1', '2', '3', '4', '5', '6', '7', '8'];
         this.pieceTypes = {
@@ -22,219 +22,272 @@ class ChessBoard {
             'p': 'pawn'
         };
         
+        // Keep track of the last move for highlighting
+        this.lastMove = {
+            from: null,
+            to: null
+        };
+        
         this.createBoard();
         this.setupInitialPosition();
         this.addEventListeners();
+        this.addCoordinates();
     }
     
     createBoard() {
-        // Clear the element
         this.element.innerHTML = '';
         
-        // Create the main container
-        const boardContainer = document.createElement('div');
-        boardContainer.className = 'cg-wrap orientation-' + this.orientation;
-        
-        const cgContainer = document.createElement('cg-container');
-        
-        // Create the board
-        const cgBoard = document.createElement('cg-board');
-        cgContainer.appendChild(cgBoard);
-        
-        // Create coordinates
-        this.createCoordinates(cgContainer);
-        
-        // Add ghost piece for drag & drop
-        const ghostPiece = document.createElement('piece');
-        ghostPiece.className = 'ghost';
-        ghostPiece.style.visibility = 'hidden';
-        cgContainer.appendChild(ghostPiece);
-        
-        boardContainer.appendChild(cgContainer);
-        this.element.appendChild(boardContainer);
-        
-        // Calculate square size based on container size
-        const boardWidth = this.element.clientWidth;
-        cgContainer.style.width = boardWidth + 'px';
-        cgContainer.style.height = boardWidth + 'px';
-        
-        // Set up the 8x8 grid
-        this.squares = {};
+        // Create board squares
         for (let rank = 8; rank >= 1; rank--) {
             for (let file = 0; file < 8; file++) {
+                const square = document.createElement('div');
+                const isWhite = (rank + file) % 2 === 1;
                 const fileStr = this.files[file];
                 const rankStr = rank.toString();
                 const squareId = fileStr + rankStr;
                 
-                // We don't create actual DOM elements for squares, just keep track of positions
-                this.squares[squareId] = {
-                    id: squareId,
-                    x: file,
-                    y: 8 - rank,
-                    fileStr,
-                    rankStr
-                };
+                square.id = `square-${squareId}`;
+                square.className = `square ${isWhite ? 'white' : 'black'}`;
+                square.dataset.square = squareId;
+                square.dataset.file = fileStr;
+                square.dataset.rank = rankStr;
+                
+                this.element.appendChild(square);
             }
         }
     }
     
-    createCoordinates(container) {
-        // Create ranks (1-8)
-        const ranksEl = document.createElement('coords');
-        ranksEl.className = 'ranks ' + this.orientation;
-        for (let rank = 1; rank <= 8; rank++) {
-            const coord = document.createElement('coord');
-            coord.textContent = rank;
-            ranksEl.appendChild(coord);
-        }
-        container.appendChild(ranksEl);
+    addCoordinates() {
+        const container = this.element.parentElement;
         
-        // Create files (a-h)
-        const filesEl = document.createElement('coords');
-        filesEl.className = 'files ' + this.orientation;
-        for (let file = 0; file < 8; file++) {
-            const coord = document.createElement('coord');
-            coord.textContent = this.files[file];
-            filesEl.appendChild(coord);
+        // Add rank coordinates (1-8)
+        const rankCoords = document.createElement('div');
+        rankCoords.className = 'coordinates-rank';
+        for (let rank = 1; rank <= 8; rank++) {
+            const coord = document.createElement('div');
+            coord.textContent = rank;
+            rankCoords.appendChild(coord);
         }
-        container.appendChild(filesEl);
+        container.appendChild(rankCoords);
+        
+        // Add file coordinates (a-h)
+        const fileCoords = document.createElement('div');
+        fileCoords.className = 'coordinates-file';
+        for (let file = 0; file < 8; file++) {
+            const coord = document.createElement('div');
+            coord.textContent = this.files[file];
+            fileCoords.appendChild(coord);
+        }
+        container.appendChild(fileCoords);
     }
     
     addEventListeners() {
-        const board = this.element.querySelector('cg-board');
-        
-        // Mouse down on a piece to start dragging or select
-        board.addEventListener('mousedown', (e) => {
+        // Mouse down - start dragging or select a piece
+        this.element.addEventListener('mousedown', (e) => {
             if (e.button !== 0) return; // Only left mouse button
             
-            const position = this.getSquareFromCoords(e.clientX, e.clientY);
-            if (!position) return;
+            const square = e.target.closest('.square');
+            if (!square) return;
             
-            const piece = this.position[position];
+            const piece = square.querySelector('.piece');
             if (!piece) return;
             
-            // Check if it's this side's turn to move
-            if (!this.isPieceCorrectSide(piece)) return;
+            const squareId = square.dataset.square;
+            const pieceCode = piece.dataset.piece;
             
-            this.selectedSquare = position;
-            this.showSelected(position);
+            if (!this.isPieceCorrectSide(pieceCode)) return;
+            
+            // Start dragging
+            this.draggedPiece = piece;
+            this.draggedPieceStartPosition = squareId;
+            
+            // Add dragging class
+            piece.classList.add('dragging');
+            
+            // Show legal moves for this piece
+            this.showLegalMoves(squareId);
+            
+            // Calculate offset for centering the piece under cursor
+            const rect = piece.getBoundingClientRect();
+            this.dragOffsetX = e.clientX - (rect.left + rect.width / 2);
+            this.dragOffsetY = e.clientY - (rect.top + rect.height / 2);
+            
+            // Update piece position
+            this.updateDraggedPiecePosition(e.clientX, e.clientY);
             
             // Prevent text selection
             e.preventDefault();
         });
         
-        // Mouse move for drag operations
-        board.addEventListener('mousemove', (e) => {
-            if (!this.selectedSquare) return;
-            
-            // Update ghost piece position
-            const ghost = this.element.querySelector('.ghost');
-            if (ghost) {
-                ghost.style.visibility = 'visible';
-                ghost.style.transform = `translate(${e.clientX - this.element.getBoundingClientRect().left - 20}px, ${e.clientY - this.element.getBoundingClientRect().top - 20}px)`;
-                
-                // Set the ghost piece to match the selected piece
-                const pieceCode = this.position[this.selectedSquare];
-                if (pieceCode) {
-                    const color = pieceCode.charAt(0);
-                    const type = pieceCode.charAt(1).toLowerCase();
-                    ghost.className = `ghost ${color === 'w' ? 'white' : 'black'} ${this.pieceTypes[type]}`;
-                }
-            }
+        // Mouse move - drag the piece
+        document.addEventListener('mousemove', (e) => {
+            if (!this.draggedPiece) return;
+            this.updateDraggedPiecePosition(e.clientX, e.clientY);
         });
         
-        // Mouse up to complete the move
-        board.addEventListener('mouseup', (e) => {
-            if (!this.selectedSquare) return;
-            
-            const targetPosition = this.getSquareFromCoords(e.clientX, e.clientY);
-            if (targetPosition && targetPosition !== this.selectedSquare) {
-                this.makeMove(this.selectedSquare, targetPosition);
+        // Mouse up - drop the piece or complete click-to-move
+        document.addEventListener('mouseup', (e) => {
+            if (!this.draggedPiece) {
+                // Handle click-to-move if no drag is in progress
+                if (this.selectedSquare) {
+                    const square = e.target.closest('.square');
+                    if (square) {
+                        const targetSquare = square.dataset.square;
+                        if (targetSquare !== this.selectedSquare) {
+                            // Attempt to make the move
+                            if (this.isLegalMove(this.selectedSquare, targetSquare)) {
+                                this.makeMove(this.selectedSquare, targetSquare);
+                            }
+                        }
+                        // Clear selection
+                        this.clearSelection();
+                    }
+                } else {
+                    // Select a piece for click-to-move
+                    const square = e.target.closest('.square');
+                    if (square) {
+                        const pieceEl = square.querySelector('.piece');
+                        if (pieceEl && this.isPieceCorrectSide(pieceEl.dataset.piece)) {
+                            this.selectedSquare = square.dataset.square;
+                            square.classList.add('selected');
+                            this.showLegalMoves(this.selectedSquare);
+                        }
+                    }
+                }
+                return;
             }
             
-            // Hide ghost and clear selection
-            const ghost = this.element.querySelector('.ghost');
-            if (ghost) {
-                ghost.style.visibility = 'hidden';
+            // Find the square under the cursor for dropping
+            const targetElement = document.elementFromPoint(e.clientX, e.clientY);
+            const targetSquare = targetElement?.closest('.square');
+            
+            // Remove dragging class
+            this.draggedPiece.classList.remove('dragging');
+            
+            if (targetSquare) {
+                const targetSquareId = targetSquare.dataset.square;
+                
+                // Only make the move if it's a different square
+                if (targetSquareId !== this.draggedPieceStartPosition) {
+                    // Check if the move is legal
+                    if (this.isLegalMove(this.draggedPieceStartPosition, targetSquareId)) {
+                        this.makeMove(this.draggedPieceStartPosition, targetSquareId);
+                    } else {
+                        // Return the piece to its original position
+                        this.draggedPiece.style.transform = '';
+                    }
+                } else {
+                    // Reset the piece position if dropped on the same square
+                    this.draggedPiece.style.transform = '';
+                }
+            } else {
+                // Reset the piece position if dropped outside the board
+                this.draggedPiece.style.transform = '';
             }
             
-            this.clearSelected();
-            this.selectedSquare = null;
+            // Clean up dragging state
+            this.draggedPiece = null;
+            this.draggedPieceStartPosition = null;
+            
+            // Clear legal move indicators
+            this.clearLegalMoves();
         });
         
         // Touch events for mobile
-        board.addEventListener('touchstart', (e) => {
+        this.element.addEventListener('touchstart', (e) => {
+            if (e.touches.length !== 1) return;
+            
             const touch = e.touches[0];
-            const position = this.getSquareFromCoords(touch.clientX, touch.clientY);
-            if (!position) return;
+            const square = document.elementFromPoint(touch.clientX, touch.clientY).closest('.square');
+            if (!square) return;
             
-            const piece = this.position[position];
-            if (!piece || !this.isPieceCorrectSide(piece)) return;
+            const piece = square.querySelector('.piece');
+            if (!piece) return;
             
-            this.selectedSquare = position;
-            this.showSelected(position);
+            const squareId = square.dataset.square;
+            const pieceCode = piece.dataset.piece;
+            
+            if (!this.isPieceCorrectSide(pieceCode)) return;
+            
+            // Start dragging
+            this.draggedPiece = piece;
+            this.draggedPieceStartPosition = squareId;
+            
+            // Add dragging class
+            piece.classList.add('dragging');
+            
+            // Show legal moves for this piece
+            this.showLegalMoves(squareId);
+            
+            // Calculate offset (centered)
+            const rect = piece.getBoundingClientRect();
+            this.dragOffsetX = touch.clientX - (rect.left + rect.width / 2);
+            this.dragOffsetY = touch.clientY - (rect.top + rect.height / 2);
+            
+            // Update piece position
+            this.updateDraggedPiecePosition(touch.clientX, touch.clientY);
             
             e.preventDefault();
         });
         
-        board.addEventListener('touchmove', (e) => {
-            if (!this.selectedSquare) return;
+        this.element.addEventListener('touchmove', (e) => {
+            if (!this.draggedPiece || e.touches.length !== 1) return;
+            
+            const touch = e.touches[0];
+            this.updateDraggedPiecePosition(touch.clientX, touch.clientY);
             e.preventDefault();
         });
         
-        board.addEventListener('touchend', (e) => {
-            if (!this.selectedSquare) return;
+        this.element.addEventListener('touchend', (e) => {
+            if (!this.draggedPiece) return;
             
             const touch = e.changedTouches[0];
-            const targetPosition = this.getSquareFromCoords(touch.clientX, touch.clientY);
+            const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
+            const targetSquare = targetElement?.closest('.square');
             
-            if (targetPosition && targetPosition !== this.selectedSquare) {
-                this.makeMove(this.selectedSquare, targetPosition);
+            // Remove dragging class
+            this.draggedPiece.classList.remove('dragging');
+            
+            if (targetSquare) {
+                const targetSquareId = targetSquare.dataset.square;
+                
+                // Only make the move if it's a different square
+                if (targetSquareId !== this.draggedPieceStartPosition) {
+                    // Check if the move is legal
+                    if (this.isLegalMove(this.draggedPieceStartPosition, targetSquareId)) {
+                        this.makeMove(this.draggedPieceStartPosition, targetSquareId);
+                    } else {
+                        // Return the piece to its original position
+                        this.draggedPiece.style.transform = '';
+                    }
+                } else {
+                    // Reset the piece position if dropped on the same square
+                    this.draggedPiece.style.transform = '';
+                }
+            } else {
+                // Reset the piece position if dropped outside the board
+                this.draggedPiece.style.transform = '';
             }
             
-            this.clearSelected();
-            this.selectedSquare = null;
+            // Clean up dragging state
+            this.draggedPiece = null;
+            this.draggedPieceStartPosition = null;
+            
+            // Clear legal move indicators
+            this.clearLegalMoves();
+            
+            e.preventDefault();
         });
     }
     
-    getSquareFromCoords(x, y) {
-        const rect = this.element.getBoundingClientRect();
-        const boardSize = Math.min(rect.width, rect.height);
-        const squareSize = boardSize / 8;
+    updateDraggedPiecePosition(clientX, clientY) {
+        if (!this.draggedPiece) return;
         
-        // Convert client coordinates to local board coordinates
-        const boardX = x - rect.left;
-        const boardY = y - rect.top;
+        const boardRect = this.element.getBoundingClientRect();
+        const x = clientX - boardRect.left - this.dragOffsetX;
+        const y = clientY - boardRect.top - this.dragOffsetY;
         
-        // Check if coordinates are within board bounds
-        if (boardX < 0 || boardX >= boardSize || boardY < 0 || boardY >= boardSize) {
-            return null;
-        }
-        
-        // Calculate file and rank
-        let file, rank;
-        if (this.orientation === 'white') {
-            file = Math.floor(boardX / squareSize);
-            rank = 7 - Math.floor(boardY / squareSize);
-        } else {
-            file = 7 - Math.floor(boardX / squareSize);
-            rank = Math.floor(boardY / squareSize);
-        }
-        
-        return this.files[file] + (rank + 1);
-    }
-    
-    showSelected(square) {
-        this.clearSelected();
-        const piece = this.getPieceElement(square);
-        if (piece) {
-            piece.classList.add('selected');
-        }
-    }
-    
-    clearSelected() {
-        const pieces = this.element.querySelectorAll('.piece.selected');
-        pieces.forEach(piece => piece.classList.remove('selected'));
+        this.draggedPiece.style.transform = `translate(${x}px, ${y}px)`;
     }
     
     isPieceCorrectSide(pieceCode) {
@@ -243,28 +296,166 @@ class ChessBoard {
                (pieceColor === 'b' && this.sideToMove === 'b');
     }
     
-    makeMove(from, to) {
+    clearSelection() {
+        const selected = document.querySelector('.square.selected');
+        if (selected) {
+            selected.classList.remove('selected');
+        }
+        this.selectedSquare = null;
+        this.clearLegalMoves();
+    }
+    
+    isLegalMove(from, to) {
+        // This is a simplified legal move checker
+        // In a complete chess implementation, you would implement full rules
+        
         const piece = this.position[from];
         if (!piece) return false;
         
-        // Check if move is legal (simplified for now)
-        // In a full implementation, we would check valid moves here
+        const pieceColor = piece.charAt(0);
+        const pieceType = piece.charAt(1).toLowerCase();
+        
+        // Cannot capture own pieces
+        if (this.position[to] && this.position[to].charAt(0) === pieceColor) {
+            return false;
+        }
+        
+        const fromCoords = this.squareToCoordinates(from);
+        const toCoords = this.squareToCoordinates(to);
+        
+        const dx = toCoords.x - fromCoords.x;
+        const dy = toCoords.y - fromCoords.y;
+        
+        // Basic move validation based on piece type
+        switch (pieceType) {
+            case 'p': // Pawn
+                const direction = pieceColor === 'w' ? -1 : 1;
+                const startRank = pieceColor === 'w' ? 6 : 1;
+                
+                // Moving forward
+                if (dx === 0 && !this.position[to]) {
+                    if (dy === direction) return true;
+                    if (dy === 2 * direction && fromCoords.y === startRank && !this.position[this.coordinatesToSquare(fromCoords.x, fromCoords.y + direction)]) {
+                        return true;
+                    }
+                }
+                
+                // Capturing
+                if (Math.abs(dx) === 1 && dy === direction && this.position[to]) {
+                    return true;
+                }
+                
+                return false;
+                
+            case 'n': // Knight
+                return (Math.abs(dx) === 1 && Math.abs(dy) === 2) || 
+                       (Math.abs(dx) === 2 && Math.abs(dy) === 1);
+                
+            case 'b': // Bishop
+                if (Math.abs(dx) !== Math.abs(dy)) return false;
+                
+                return this.isPathClear(fromCoords, toCoords);
+                
+            case 'r': // Rook
+                if (dx !== 0 && dy !== 0) return false;
+                
+                return this.isPathClear(fromCoords, toCoords);
+                
+            case 'q': // Queen
+                if (dx !== 0 && dy !== 0 && Math.abs(dx) !== Math.abs(dy)) return false;
+                
+                return this.isPathClear(fromCoords, toCoords);
+                
+            case 'k': // King
+                return Math.abs(dx) <= 1 && Math.abs(dy) <= 1;
+                
+            default:
+                return false;
+        }
+    }
+    
+    squareToCoordinates(square) {
+        const file = this.files.indexOf(square.charAt(0));
+        const rank = 8 - parseInt(square.charAt(1));
+        return { x: file, y: rank };
+    }
+    
+    coordinatesToSquare(x, y) {
+        return `${this.files[x]}${8 - y}`;
+    }
+    
+    isPathClear(from, to) {
+        const dx = Math.sign(to.x - from.x);
+        const dy = Math.sign(to.y - from.y);
+        
+        let x = from.x + dx;
+        let y = from.y + dy;
+        
+        while (x !== to.x || y !== to.y) {
+            const square = this.coordinatesToSquare(x, y);
+            if (this.position[square]) {
+                return false;
+            }
+            x += dx;
+            y += dy;
+        }
+        
+        return true;
+    }
+    
+    showLegalMoves(square) {
+        this.clearLegalMoves();
+        
+        for (let rank = 0; rank < 8; rank++) {
+            for (let file = 0; file < 8; file++) {
+                const targetSquare = this.coordinatesToSquare(file, rank);
+                if (this.isLegalMove(square, targetSquare)) {
+                    const targetElement = document.getElementById(`square-${targetSquare}`);
+                    
+                    if (this.position[targetSquare]) {
+                        targetElement.classList.add('legal-capture');
+                    } else {
+                        targetElement.classList.add('legal-move');
+                    }
+                }
+            }
+        }
+    }
+    
+    clearLegalMoves() {
+        document.querySelectorAll('.square.legal-move, .square.legal-capture').forEach(square => {
+            square.classList.remove('legal-move', 'legal-capture');
+        });
+    }
+    
+    makeMove(from, to) {
+        const sourceSquare = document.getElementById(`square-${from}`);
+        const targetSquare = document.getElementById(`square-${to}`);
+        const piece = sourceSquare.querySelector('.piece');
+        
+        if (!piece) return false;
         
         // Remove captured piece if any
-        if (this.position[to]) {
-            this.removePiece(to);
+        if (targetSquare.querySelector('.piece')) {
+            targetSquare.removeChild(targetSquare.querySelector('.piece'));
         }
         
         // Update position object
         this.position[to] = this.position[from];
         delete this.position[from];
         
-        // Move piece visually
-        this.removePiece(from);
-        this.setPiece(to, piece);
+        // Move piece to new square
+        sourceSquare.removeChild(piece);
+        targetSquare.appendChild(piece);
         
-        // Update last move for highlighting
-        this.setLastMove(from, to);
+        // Reset piece position if it was being dragged
+        piece.style.transform = '';
+        
+        // Store last move for highlighting
+        this.lastMove = { from, to };
+        
+        // Highlight the move
+        this.highlightLastMove();
         
         // Switch side to move
         this.sideToMove = this.sideToMove === 'w' ? 'b' : 'w';
@@ -273,56 +464,21 @@ class ChessBoard {
         return true;
     }
     
-    setLastMove(from, to) {
-        // Clear previous last move
-        this.clearLastMoveHighlight();
+    highlightLastMove() {
+        // Remove previous highlights
+        document.querySelectorAll('.square.highlight-source, .square.highlight-target').forEach(square => {
+            square.classList.remove('highlight-source', 'highlight-target');
+        });
         
-        // Save last move
-        this.lastMove = { from, to };
-        
-        // Add highlight
-        this.addLastMoveHighlight();
-    }
-    
-    clearLastMoveHighlight() {
-        const board = this.element.querySelector('cg-board');
-        const existingSquares = board.querySelectorAll('square.last-move');
-        existingSquares.forEach(sq => board.removeChild(sq));
-    }
-    
-    addLastMoveHighlight() {
-        if (!this.lastMove) return;
-        
-        const board = this.element.querySelector('cg-board');
-        const { from, to } = this.lastMove;
-        
-        // Create highlight squares for source and target
-        const squareFrom = this.createHighlightSquare(from, 'last-move');
-        const squareTo = this.createHighlightSquare(to, 'last-move');
-        
-        board.appendChild(squareFrom);
-        board.appendChild(squareTo);
-    }
-    
-    createHighlightSquare(position, className) {
-        const square = document.createElement('square');
-        square.className = className;
-        
-        const coords = this.getSquareCoordinates(position);
-        if (coords) {
-            square.style.transform = `translate(${coords.x * 12.5}%, ${coords.y * 12.5}%)`;
+        if (this.lastMove.from && this.lastMove.to) {
+            const sourceSquare = document.getElementById(`square-${this.lastMove.from}`);
+            const targetSquare = document.getElementById(`square-${this.lastMove.to}`);
+            
+            if (sourceSquare && targetSquare) {
+                sourceSquare.classList.add('highlight-source');
+                targetSquare.classList.add('highlight-target');
+            }
         }
-        
-        return square;
-    }
-    
-    getSquareCoordinates(position) {
-        const file = this.files.indexOf(position.charAt(0));
-        const rank = 8 - parseInt(position.charAt(1), 10);
-        
-        if (file === -1 || rank < 0 || rank > 7) return null;
-        
-        return { x: file, y: rank };
     }
     
     updateSideToMove() {
@@ -332,56 +488,41 @@ class ChessBoard {
         }
     }
     
-    getPieceElement(square) {
-        const cgBoard = this.element.querySelector('cg-board');
-        return cgBoard.querySelector(`piece[data-square="${square}"]`);
-    }
-    
-    removePiece(square) {
-        const piece = this.getPieceElement(square);
-        if (piece) {
-            piece.parentNode.removeChild(piece);
-        }
-    }
-    
     setPiece(square, pieceCode) {
-        // Create new piece element
-        const piece = document.createElement('piece');
-        piece.className = 'piece';
-        piece.dataset.piece = pieceCode;
-        piece.dataset.square = square;
+        const squareElement = document.getElementById(`square-${square}`);
+        if (!squareElement) return;
         
-        const color = pieceCode.charAt(0);
-        const type = pieceCode.charAt(1).toLowerCase();
-        
-        // Add color and type classes
-        piece.classList.add(color === 'w' ? 'white' : 'black');
-        piece.classList.add(this.pieceTypes[type]);
-        
-        // Position the piece
-        const coords = this.getSquareCoordinates(square);
-        if (coords) {
-            piece.style.transform = `translate(${coords.x * 12.5}%, ${coords.y * 12.5}%)`;
+        // Remove existing piece if any
+        const existingPiece = squareElement.querySelector('.piece');
+        if (existingPiece) {
+            squareElement.removeChild(existingPiece);
         }
         
-        // Use the existing image naming convention
-        let imageName;
-        if (color === 'w') {
-            // White pieces use 'lt' (light)
-            imageName = `Chess_${type}lt45.svg.png`;
+        if (pieceCode) {
+            const piece = document.createElement('div');
+            piece.className = 'piece';
+            piece.dataset.piece = pieceCode;
+            
+            const color = pieceCode.charAt(0);
+            const type = pieceCode.charAt(1).toLowerCase();
+            
+            // Use the existing image naming convention
+            let imageName;
+            if (color === 'w') {
+                // White pieces use 'lt' (light)
+                imageName = `Chess_${type}lt45.svg.png`;
+            } else {
+                // Black pieces use 'dt' (dark)
+                imageName = `Chess_${type}dt45.svg.png`;
+            }
+            
+            piece.style.backgroundImage = `url('images/${imageName}')`;
+            
+            squareElement.appendChild(piece);
+            this.position[square] = pieceCode;
         } else {
-            // Black pieces use 'dt' (dark)
-            imageName = `Chess_${type}dt45.svg.png`;
+            delete this.position[square];
         }
-        
-        piece.style.backgroundImage = `url('images/${imageName}')`;
-        
-        // Add to board
-        const cgBoard = this.element.querySelector('cg-board');
-        cgBoard.appendChild(piece);
-        
-        // Update position data
-        this.position[square] = pieceCode;
     }
     
     setupInitialPosition() {
@@ -397,12 +538,7 @@ class ChessBoard {
     setPositionFromFen(fen) {
         // Clear the board
         this.position = {};
-        const cgBoard = this.element.querySelector('cg-board');
-        const pieces = cgBoard.querySelectorAll('.piece');
-        pieces.forEach(piece => cgBoard.removeChild(piece));
-        
-        // Clear last move highlight
-        this.clearLastMoveHighlight();
+        document.querySelectorAll('.piece').forEach(piece => piece.remove());
         
         const parts = fen.split(' ');
         const position = parts[0];
@@ -431,56 +567,18 @@ class ChessBoard {
         this.updateSideToMove();
     }
     
-    setOrientation(color) {
-        this.orientation = color;
-        
-        // Update board orientation class
-        const wrap = this.element.querySelector('.cg-wrap');
-        if (wrap) {
-            wrap.className = `cg-wrap orientation-${color}`;
-        }
-        
-        // Update coords orientation
-        const files = this.element.querySelector('.coords.files');
-        const ranks = this.element.querySelector('.coords.ranks');
-        if (files) files.className = `coords files ${color}`;
-        if (ranks) ranks.className = `coords ranks ${color}`;
-        
-        // Redraw pieces with new orientation
-        this.redrawPieces();
-    }
-    
-    redrawPieces() {
-        const currentPosition = {...this.position};
-        const cgBoard = this.element.querySelector('cg-board');
-        
-        // Clear all pieces
-        const pieces = cgBoard.querySelectorAll('.piece');
-        pieces.forEach(piece => cgBoard.removeChild(piece));
-        
-        // Redraw all pieces in correct positions
-        for (const [square, pieceCode] of Object.entries(currentPosition)) {
-            this.setPiece(square, pieceCode);
-        }
-        
-        // Refresh last move highlights
-        this.clearLastMoveHighlight();
-        if (this.lastMove) {
-            this.addLastMoveHighlight();
-        }
-    }
-    
     clearHighlights() {
-        const cgBoard = this.element.querySelector('cg-board');
-        const highlights = cgBoard.querySelectorAll('square');
-        highlights.forEach(sq => cgBoard.removeChild(sq));
+        document.querySelectorAll('.square.highlight-source, .square.highlight-target, .square.highlight-check, .square.selected, .square.legal-move, .square.legal-capture')
+            .forEach(el => {
+                el.classList.remove('highlight-source', 'highlight-target', 'highlight-check', 'selected', 'legal-move', 'legal-capture');
+            });
     }
     
     resetPosition() {
         this.setupInitialPosition();
         this.clearHighlights();
         this.selectedSquare = null;
-        this.lastMove = null;
+        this.lastMove = { from: null, to: null };
     }
     
     // Method to set a custom position from FEN
@@ -488,16 +586,6 @@ class ChessBoard {
         this.setPositionFromFen(fen);
         this.clearHighlights();
         this.selectedSquare = null;
-        this.lastMove = null;
-    }
-    
-    // Set orientation to black (pieces displayed from black's perspective)
-    setBlackOrientation() {
-        this.setOrientation('black');
-    }
-    
-    // Set orientation to white (pieces displayed from white's perspective)
-    setWhiteOrientation() {
-        this.setOrientation('white');
+        this.lastMove = { from: null, to: null };
     }
 } 
