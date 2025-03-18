@@ -1158,8 +1158,8 @@ async function startNewPuzzle() {
             }
             
             // Update puzzle info in the UI
-            document.getElementById('puzzle-info').textContent = `Puzzle Rating: ${puzzleRating}`;
-            document.getElementById('puzzle-id').textContent = puzzleId;
+            document.getElementById('puzzle-info').textContent = `Rating: ${puzzleRating}`;
+            document.getElementById('puzzle-id').textContent = `ID: ${puzzleId}`;
             
             // Reset the chess game with the new FEN
             game = new Chess(fen);
