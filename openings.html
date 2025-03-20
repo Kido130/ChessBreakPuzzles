@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChessBreak - Openings</title>
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 0;
+            background-color: #2e2a24;
+            color: #bababa;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background-color: #252220;
+            padding: 1.8vh 3.6vw;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 0.2vh 0.5vh rgba(0, 0, 0, 0.2);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+        }
+
+        .title-container {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2.76vh;
+        }
+
+        .subtitle {
+            font-size: 1.5vh;
+            color: #8a8a8a;
+            margin-top: 0.3vh;
+        }
+
+        .nav-links {
+            display: flex;
+            margin-left: 3.6vw;
+        }
+
+        .nav-links a {
+            color: #bababa;
+            text-decoration: none;
+            margin-right: 2.4vw;
+            font-size: 1.8vh;
+            padding: 0.6vh 0;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: #fff;
+        }
+
+        .user-info {
+            display: flex;
+            gap: 2.4vw;
+            font-size: 1.8vh;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 3vh 4vw;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .openings-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .opening-card {
+            background-color: #252220;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .opening-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .opening-card h3 {
+            margin-top: 0;
+            color: #ffffff;
+            border-bottom: 1px solid #3e3e3e;
+            padding-bottom: 10px;
+        }
+
+        .opening-card p {
+            color: #bababa;
+            line-height: 1.5;
+        }
+
+        .opening-card .description {
+            margin-bottom: 15px;
+        }
+
+        .opening-card .moves {
+            font-family: monospace;
+            background-color: #1e1e1e;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .page-title {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #ffffff;
+        }
+
+        .search-bar {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .search-bar input {
+            width: 100%;
+            max-width: 500px;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 25px;
+            background-color: #1e1e1e;
+            color: #ffffff;
+            font-size: 16px;
+            outline: none;
+        }
+
+        .search-bar input::placeholder {
+            color: #888888;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 2vh 0;
+            background-color: #252220;
+            margin-top: auto;
+            font-size: 1.4vh;
+            color: #888888;
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                padding: 1.5vh 2vw;
+            }
+
+            .header-left {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .nav-links {
+                margin-left: 0;
+                margin-top: 1.2vh;
+            }
+
+            .user-info {
+                margin-top: 1.2vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-left">
+            <div class="title-container">
+                <h1>ChessBreak</h1>
+                <div class="subtitle">Openings</div>
+            </div>
+            <nav class="nav-links">
+                <a href="index.html">Puzzles</a>
+                <a href="openings.html">Openings</a>
+                <a href="#" id="about-link">About Us</a>
+                <a href="#" id="contact-link">Contact Us</a>
+                <a href="#" id="privacy-link">Privacy Policy</a>
+            </nav>
+        </div>
+        <div class="user-info">
+            <div>Rating: <span id="user-rating">650</span></div>
+            <div>Puzzles Solved: <span id="puzzles-solved">0</span></div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <h1 class="page-title">Chess Openings Library</h1>
+        
+        <div class="search-bar">
+            <input type="text" id="opening-search" placeholder="Search openings...">
+        </div>
+        
+        <div class="openings-container" id="openings-list">
+            <!-- Opening cards will be added here -->
+            <div class="opening-card">
+                <h3>Ruy Lopez (Spanish Game)</h3>
+                <p class="description">One of the oldest and most popular openings, named after a Spanish bishop from the 16th century.</p>
+                <p class="moves">1. e4 e5 2. Nf3 Nc6 3. Bb5</p>
+            </div>
+            
+            <div class="opening-card">
+                <h3>Sicilian Defense</h3>
+                <p class="description">A highly aggressive counter to 1.e4, and the most popular response at high levels of play.</p>
+                <p class="moves">1. e4 c5</p>
+            </div>
+            
+            <div class="opening-card">
+                <h3>Queen's Gambit</h3>
+                <p class="description">A classic opening where White offers a pawn to gain control of the center.</p>
+                <p class="moves">1. d4 d5 2. c4</p>
+            </div>
+            
+            <div class="opening-card">
+                <h3>French Defense</h3>
+                <p class="description">A solid defense that often leads to closed, strategic positions.</p>
+                <p class="moves">1. e4 e6</p>
+            </div>
+            
+            <div class="opening-card">
+                <h3>King's Indian Defense</h3>
+                <p class="description">A hypermodern opening where Black allows White to build a center and then attacks it.</p>
+                <p class="moves">1. d4 Nf6 2. c4 g6</p>
+            </div>
+            
+            <div class="opening-card">
+                <h3>Italian Game</h3>
+                <p class="description">A classic opening that develops pieces quickly and aims for control of the center.</p>
+                <p class="moves">1. e4 e5 2. Nf3 Nc6 3. Bc4</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        &copy; 2025 ChessBreak. All rights reserved.
+    </div>
+
+    <script>
+        // Load user data from localStorage
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof localStorage !== 'undefined') {
+                const savedRating = localStorage.getItem('chessUserRating');
+                const savedPuzzlesSolved = localStorage.getItem('chessPuzzlesSolved');
+                
+                if (savedRating) {
+                    document.getElementById('user-rating').textContent = savedRating;
+                }
+                
+                if (savedPuzzlesSolved) {
+                    document.getElementById('puzzles-solved').textContent = savedPuzzlesSolved;
+                }
+            }
+        });
+
+        // Search functionality
+        document.getElementById('opening-search').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const openingCards = document.querySelectorAll('.opening-card');
+            
+            openingCards.forEach(card => {
+                const title = card.querySelector('h3').textContent.toLowerCase();
+                const description = card.querySelector('.description').textContent.toLowerCase();
+                const moves = card.querySelector('.moves').textContent.toLowerCase();
+                
+                if (title.includes(searchTerm) || description.includes(searchTerm) || moves.includes(searchTerm)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html> 
