@@ -52,31 +52,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('DOM fully loaded');
     
     // Initialize DOM element references
-    elements = {
-        board: document.getElementById('board'),
-        currentOpeningName: document.getElementById('currentOpeningName'),
-        currentVariation: document.getElementById('currentVariation'),
-        moveHistory: document.getElementById('moveHistory'),
-        progressBar: document.getElementById('progressBar'),
-        progressText: document.getElementById('progressText'),
-        choiceA: document.getElementById('choiceA'),
-        choiceB: document.getElementById('choiceB'),
-        playAgainBtn: document.getElementById('playAgainBtn'),
-        nextMoveBtn: document.getElementById('nextMoveBtn'),
-        openingSelectionBtn: document.getElementById('openingSelectionBtn'),
-        openingLibraryBtn: document.getElementById('openingLibraryBtn'),
-        openingList: document.getElementById('openingList'),
-        variationList: document.getElementById('variationList'),
-        lineList: document.getElementById('lineList'),
-        libraryOpeningList: document.getElementById('libraryOpeningList'),
-        openingSearch: document.getElementById('openingSearch'),
-        sortByPopularity: document.getElementById('sortByPopularity'),
-        sortAlphabetically: document.getElementById('sortAlphabetically'),
-        totalProgress: document.getElementById('total-progress'),
-        congratsModal: document.getElementById('congratsModal'),
-        learnAnotherLine: document.getElementById('learnAnotherLine'),
-        learnNewOpening: document.getElementById('learnNewOpening')
-    };
+    initializeElements();
     
     // Log if any elements weren't found
     Object.entries(elements).forEach(([key, value]) => {
@@ -328,7 +304,6 @@ function setupEventListeners() {
     elements.choiceB.addEventListener('click', () => handleMoveChoice('B'));
     
     // Modal opening buttons
-    elements.openingSelectionBtn.addEventListener('click', openOpeningSelectionModal);
     elements.openingLibraryBtn.addEventListener('click', openOpeningLibraryModal);
     
     // Opening search and sort
@@ -344,7 +319,7 @@ function setupEventListeners() {
     
     elements.learnNewOpening.addEventListener('click', () => {
         document.getElementById('congratsModal').style.display = 'none';
-        openOpeningSelectionModal();
+        openOpeningLibraryModal();
     });
     
     // Color preference radio buttons
@@ -477,6 +452,27 @@ function openOpeningLibraryModal() {
     const modal = document.getElementById('openingLibraryModal');
     modal.style.display = 'block';
     
+    // Update currently studying display
+    if (currentOpening) {
+        const displayText = currentVariation ? 
+            `${currentOpening}: ${currentVariation}` : 
+            `${currentOpening}: Main Line`;
+        elements.currentOpeningDisplay.textContent = displayText;
+    } else {
+        elements.currentOpeningDisplay.textContent = "None selected";
+    }
+    
+    // Hide variation and line lists initially
+    if (elements.libraryVariationList) {
+        elements.libraryVariationList.classList.add('hidden');
+    }
+    if (elements.libraryLineList) {
+        elements.libraryLineList.classList.add('hidden');
+    }
+    
+    // Show opening list
+    elements.libraryOpeningList.classList.remove('hidden');
+    
     // Populate with all openings sorted by popularity
     const allOpeningsList = Object.entries(allOpenings)
         .map(([name, data]) => ({ name, totalPlays: data.totalPlays }))
@@ -590,11 +586,33 @@ function populateLibraryOpenings(openings) {
             <div class="opening-name">${opening.name}</div>
             <div class="opening-plays">${numberWithCommas(opening.totalPlays)} plays</div>
             ${progressStatus}
+            <div class="item-actions">
+                <button class="view-btn">View Details</button>
+                <button class="study-btn">Study Opening</button>
+            </div>
         `;
         
-        openingItem.addEventListener('click', () => {
-            // When clicked in library, show details but don't select for learning
+        // Add event listeners to buttons
+        const viewBtn = openingItem.querySelector('.view-btn');
+        const studyBtn = openingItem.querySelector('.study-btn');
+        
+        viewBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
             showOpeningDetails(opening.name);
+        });
+        
+        studyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            currentOpening = opening.name;
+            userProgress.currentOpening = opening.name;
+            saveUserProgress();
+            
+            // Update currently studying display
+            const displayText = `${opening.name}: Main Line`;
+            elements.currentOpeningDisplay.textContent = displayText;
+            
+            elements.libraryOpeningList.classList.add('hidden');
+            openLibraryVariationSelection(opening.name);
         });
         
         elements.libraryOpeningList.appendChild(openingItem);
@@ -838,6 +856,14 @@ function startLearningSession(savedMoveIndex = 0) {
     // Update display
     elements.currentOpeningName.textContent = currentOpening;
     elements.currentVariation.textContent = currentVariation || 'Main Line';
+    
+    // Update the current opening display in the library modal
+    if (elements.currentOpeningDisplay) {
+        const displayText = currentVariation ? 
+            `${currentOpening}: ${currentVariation}` : 
+            `${currentOpening}: Main Line`;
+        elements.currentOpeningDisplay.textContent = displayText;
+    }
     
     // Reset board and game
     game = new Chess();
@@ -1926,4 +1952,126 @@ function showMessage(message) {
         messageEl.style.opacity = '0';
         setTimeout(() => messageEl.remove(), 500);
     }, 1200);
+}
+
+// Initialize DOM elements
+function initializeElements() {
+    elements = {
+        // Board
+        board: document.getElementById('board'),
+        
+        // Main display elements
+        currentOpeningName: document.getElementById('currentOpeningName'),
+        currentVariation: document.getElementById('currentVariation'),
+        moveHistory: document.getElementById('moveHistory'),
+        
+        // Progress elements
+        progressBar: document.getElementById('progressBar'),
+        progressText: document.getElementById('progressText'),
+        totalProgress: document.getElementById('total-progress'),
+        
+        // Board control buttons
+        playAgainBtn: document.getElementById('playAgainBtn'),
+        nextMoveBtn: document.getElementById('nextMoveBtn'),
+        
+        // Control buttons
+        openingLibraryBtn: document.getElementById('openingLibraryBtn'),
+        
+        // Move choice buttons
+        choiceA: document.getElementById('choiceA'),
+        choiceB: document.getElementById('choiceB'),
+        
+        // Opening selection modal elements
+        openingList: document.getElementById('openingList'),
+        variationList: document.getElementById('variationList'),
+        lineList: document.getElementById('lineList'),
+        
+        // Library modal elements
+        libraryOpeningList: document.getElementById('libraryOpeningList'),
+        libraryVariationList: document.getElementById('libraryVariationList'),
+        libraryLineList: document.getElementById('libraryLineList'),
+        currentOpeningDisplay: document.getElementById('current-opening-display'),
+        
+        // Search and sort
+        openingSearch: document.getElementById('openingSearch'),
+        sortByPopularity: document.getElementById('sortByPopularity'),
+        sortAlphabetically: document.getElementById('sortAlphabetically'),
+        
+        // Congratulations modal buttons
+        learnAnotherLine: document.getElementById('learnAnotherLine'),
+        learnNewOpening: document.getElementById('learnNewOpening')
+    };
+}
+
+// Open the library variation selection
+function openLibraryVariationSelection(openingName) {
+    if (!allOpenings[openingName]) return;
+    
+    const opening = allOpenings[openingName];
+    
+    // Update modal title
+    const title = document.querySelector('#openingLibraryModal h2');
+    title.textContent = `Select a variation of ${openingName}`;
+    
+    // Show variation list
+    elements.libraryVariationList.classList.remove('hidden');
+    elements.libraryVariationList.innerHTML = '';
+    
+    // Add the main line
+    const mainLineItem = document.createElement('div');
+    mainLineItem.className = 'variation-item';
+    mainLineItem.innerHTML = `
+        <div class="opening-name">Main Line</div>
+        <div class="opening-plays">${numberWithCommas(opening.plays)} plays</div>
+        <div class="opening-moves">${formatMovesForDisplay(opening.moves)}</div>
+        <button class="study-btn">Study This Line</button>
+    `;
+    
+    mainLineItem.querySelector('.study-btn').addEventListener('click', () => {
+        currentVariation = 'Main Line';
+        userProgress.currentVariation = currentVariation;
+        currentLine = opening.moves;
+        userProgress.currentLine = currentLine;
+        saveUserProgress();
+        
+        // Update currently studying display
+        const displayText = `${openingName}: Main Line`;
+        elements.currentOpeningDisplay.textContent = displayText;
+        
+        document.getElementById('openingLibraryModal').style.display = 'none';
+        startLearningSession();
+    });
+    
+    elements.libraryVariationList.appendChild(mainLineItem);
+    
+    // Add all variations
+    if (opening.variations) {
+        Object.entries(opening.variations).forEach(([variationName, variation]) => {
+            const variationItem = document.createElement('div');
+            variationItem.className = 'variation-item';
+            variationItem.innerHTML = `
+                <div class="opening-name">${variationName}</div>
+                <div class="opening-plays">${numberWithCommas(variation.plays)} plays</div>
+                <div class="opening-moves">${formatMovesForDisplay(variation.moves)}</div>
+                <button class="study-btn">Study This Line</button>
+            `;
+            
+            variationItem.querySelector('.study-btn').addEventListener('click', () => {
+                currentVariation = variationName;
+                userProgress.currentVariation = currentVariation;
+                currentLine = variation.moves;
+                userProgress.currentLine = currentLine;
+                saveUserProgress();
+                
+                // Update currently studying display
+                const displayText = `${openingName}: ${variationName}`;
+                elements.currentOpeningDisplay.textContent = displayText;
+                
+                document.getElementById('openingLibraryModal').style.display = 'none';
+                startLearningSession();
+            });
+            
+            elements.libraryVariationList.appendChild(variationItem);
+        });
+    }
 }
