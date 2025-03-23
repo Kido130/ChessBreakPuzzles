@@ -2,7 +2,7 @@ import http.server
 import socketserver
 import os
 
-PORT = 8000
+PORT = 8080
 
 class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     # Add JSON content type to supported MIME types

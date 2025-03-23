@@ -144,7 +144,7 @@ function initializeChessboard() {
                 onSnapEnd: onSnapEnd,
                 pieceTheme: pieceTheme,
                 animation: {
-                    duration: 300, // Animation speed in milliseconds
+                    duration: 500, // Increased animation duration for smoother transitions
                     concurrent: true // Allow concurrent animations
                 }
             };
@@ -1156,15 +1156,15 @@ function handleMoveChoice(choice) {
     const isCorrect = button.dataset.correct === 'true';
     const move = button.dataset.move;
     
-    // Clear move visualization immediately when a choice is made
-    clearMoveVisualization();
-    
     // Hide choice buttons during animation
     elements.choiceA.parentElement.parentElement.style.visibility = 'hidden';
     
     if (isCorrect) {
         // Apply the correct move
         if (move) {
+            // First, clear any move visualizations but after a tiny delay to avoid disrupting animation
+            setTimeout(() => clearMoveVisualization(), 20);
+            
             game.move(move);
             board.position(game.fen(), true); // Enable animation
             moveSound.play();
@@ -1202,7 +1202,7 @@ function handleMoveChoice(choice) {
         // Save progress
         saveUserProgress();
         
-        // Continue with the next move after a short delay
+        // Continue with the next move after a longer delay to allow animation to complete
         setTimeout(() => {
             // Clear visual feedback
             button.style.boxShadow = '';
@@ -1210,8 +1210,11 @@ function handleMoveChoice(choice) {
             
             // Make the next move (computer's response)
             playNextComputerMove(isNewMove);
-        }, 500);
+        }, 700); // Increased from 500ms to 700ms to ensure animation completes
     } else {
+        // Clear move visualization after a small delay
+        setTimeout(() => clearMoveVisualization(), 20);
+        
         // Wrong choice feedback
         button.classList.add('incorrect');
         
@@ -1248,8 +1251,8 @@ function playNextComputerMove(wasNewUserMove = false) {
     // Make sure buttons are hidden during computer's move
     elements.choiceA.parentElement.parentElement.style.visibility = 'hidden';
     
-    // Clear any existing move visualizations
-    clearMoveVisualization();
+    // Clear any existing move visualizations after a small delay
+    setTimeout(() => clearMoveVisualization(), 20);
     
     // Play the next move with animation
     game.move(moveList[currentMoveIndex]);
@@ -1262,7 +1265,7 @@ function playNextComputerMove(wasNewUserMove = false) {
     
     updateMoveHistory();
     
-    // Wait for animation to complete before proceeding
+    // Wait for animation to complete before proceeding - use longer timeout
     setTimeout(() => {
         // If we reached the end, complete the line
         if (currentMoveIndex >= moveList.length) {
@@ -1271,7 +1274,7 @@ function playNextComputerMove(wasNewUserMove = false) {
             // Check if next move should be played by computer based on color preference
             prepareNextMoveChoices();
         }
-    }, 200); // Wait for animation to complete
+    }, 600); // Increased from 200ms to 600ms to ensure animation completes
 }
 
 // Complete the current line

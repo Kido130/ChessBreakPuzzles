@@ -786,7 +786,7 @@ function onDrop(source, target) {
             // Wrong move, undo and return to the position
             setTimeout(() => {
                 game.undo();
-                board.position(game.fen());
+                board.position(game.fen(), true);
                 updateTurnDisplay();
             }, 1000);
             
@@ -826,7 +826,7 @@ function onDrop(source, target) {
                     playMoveSound();
                     
                     // Update the board
-                    board.position(game.fen());
+                    board.position(game.fen(), true);
                     
                     // Update turn indicator
                     updateTurnDisplay();
@@ -877,7 +877,7 @@ function onDrop(source, target) {
 }
 
 function onSnapEnd() {
-    board.position(game.fen());
+    board.position(game.fen(), true);
 }
 
 // Validate puzzle moves against chess rules
@@ -928,7 +928,7 @@ function executePremove() {
     }
     
     // Update board position
-    board.position(game.fen());
+    board.position(game.fen(), true);
     
     // Play move sound
     playMoveSound();
@@ -951,7 +951,7 @@ function executePremove() {
         // Wrong move handling
         setTimeout(() => {
             game.undo();
-            board.position(game.fen());
+            board.position(game.fen(), true);
             updateTurnDisplay();
         }, 1000);
         
@@ -1011,7 +1011,7 @@ function executePremove() {
                 playMoveSound();
                 
                 // Update the board
-                board.position(game.fen());
+                board.position(game.fen(), true);
                 
                 // Update turn indicator
                 updateTurnDisplay();
@@ -1177,7 +1177,11 @@ async function startNewPuzzle() {
                 onDragStart: onDragStart,
                 onDrop: onDrop,
                 onSnapEnd: onSnapEnd,
-                pieceTheme: customPieceTheme
+                pieceTheme: customPieceTheme,
+                animation: {
+                    duration: 500, // Increased animation duration for smoother transitions
+                    concurrent: true // Allow concurrent animations
+                }
             };
             
             // Create or update the board
@@ -1220,7 +1224,7 @@ async function startNewPuzzle() {
                 // Play move sound for the first computer move
                 playMoveSound();
                 
-                board.position(game.fen());
+                board.position(game.fen(), true);
                 moveIndex++;
                 
                 // Update turn indicator after move
