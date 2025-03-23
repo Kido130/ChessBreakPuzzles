@@ -581,10 +581,31 @@ function populateLibraryOpenings(openings) {
             progressStatus = `<div class="opening-progress started">${totalMovesTried} moves tried</div>`;
         }
         
-        // Get description for the opening
+        // Get description for the opening or generate a generic one
         let descriptionText = "";
         if (descriptions[opening.name] && descriptions[opening.name].description) {
             descriptionText = `<div class="opening-description">${descriptions[opening.name].description}</div>`;
+        } else {
+            // Generate generic description based on opening name
+            const isWhiteOpening = !opening.name.toLowerCase().includes("defense") && 
+                                  !opening.name.toLowerCase().includes("defence") && 
+                                  !opening.name.toLowerCase().includes("indian") &&
+                                  !opening.name.toLowerCase().includes("benoni");
+            
+            let genericDesc = isWhiteOpening ? 
+                `An opening for White that aims to establish control and create active piece play.` :
+                `A defensive system for Black that creates counterplay while developing pieces harmoniously.`;
+                
+            if (opening.name.toLowerCase().includes("gambit")) {
+                genericDesc = `A gambit where ${isWhiteOpening ? 'White' : 'Black'} sacrifices material for rapid development and attacking chances.`;
+            }
+            
+            descriptionText = `<div class="opening-description">${genericDesc}</div>`;
+            
+            // Store this description for future use
+            if (!descriptions[opening.name]) {
+                descriptions[opening.name] = { description: genericDesc };
+            }
         }
         
         openingItem.className = `opening-item ${progressClass}`;
@@ -2088,9 +2109,17 @@ function openLibraryVariationSelection(openingName) {
     // Add the main line
     const mainLineItem = document.createElement('div');
     mainLineItem.className = 'variation-item';
+    
+    // Get description for the main line or create a generic one
+    let mainLineDesc = "The principal line of the opening with standard piece development.";
+    if (descriptions[openingName] && descriptions[openingName].mainLine) {
+        mainLineDesc = descriptions[openingName].mainLine;
+    }
+    
     mainLineItem.innerHTML = `
         <div class="opening-name">Main Line</div>
         <div class="opening-plays">${numberWithCommas(opening.plays)} plays</div>
+        <div class="opening-description">${mainLineDesc}</div>
         <div class="opening-moves">${formatMovesForDisplay(opening.moves)}</div>
         <button class="study-btn">Study This Line</button>
     `;
@@ -2117,9 +2146,42 @@ function openLibraryVariationSelection(openingName) {
         Object.entries(opening.variations).forEach(([variationName, variation]) => {
             const variationItem = document.createElement('div');
             variationItem.className = 'variation-item';
+            
+            // Get description for the variation or create a generic one
+            let variationDesc = "";
+            if (descriptions[openingName] && 
+                descriptions[openingName].variations && 
+                descriptions[openingName].variations[variationName]) {
+                variationDesc = descriptions[openingName].variations[variationName];
+            } else {
+                // Generate generic description
+                if (variationName.includes("Attack")) {
+                    variationDesc = "An aggressive approach focused on direct attacks against the opponent's position.";
+                } else if (variationName.includes("Variation")) {
+                    variationDesc = "An alternative approach to the main line with distinct strategic ideas.";
+                } else if (variationName.includes("Defense") || variationName.includes("Defence")) {
+                    variationDesc = "A solid defensive setup that addresses specific threats in this opening.";
+                } else if (variationName.includes("Gambit")) {
+                    variationDesc = "A line where material is sacrificed for rapid development and attacking prospects.";
+                } else if (variationName.includes("System")) {
+                    variationDesc = "A flexible setup that can be used against various opponent responses.";
+                } else {
+                    variationDesc = "An alternative approach to the main line with its own strategic concepts.";
+                }
+                
+                // Store this description for future use
+                if (!descriptions[openingName]) {
+                    descriptions[openingName] = { variations: {} };
+                } else if (!descriptions[openingName].variations) {
+                    descriptions[openingName].variations = {};
+                }
+                descriptions[openingName].variations[variationName] = variationDesc;
+            }
+            
             variationItem.innerHTML = `
                 <div class="opening-name">${variationName}</div>
                 <div class="opening-plays">${numberWithCommas(variation.plays)} plays</div>
+                <div class="opening-description">${variationDesc}</div>
                 <div class="opening-moves">${formatMovesForDisplay(variation.moves)}</div>
                 <button class="study-btn">Study This Line</button>
             `;
