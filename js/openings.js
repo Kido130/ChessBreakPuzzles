@@ -73,7 +73,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         sortByPopularity: document.getElementById('sortByPopularity'),
         sortAlphabetically: document.getElementById('sortAlphabetically'),
         totalProgress: document.getElementById('total-progress'),
-        openingsMastered: document.getElementById('openings-mastered'),
         congratsModal: document.getElementById('congratsModal'),
         learnAnotherLine: document.getElementById('learnAnotherLine'),
         learnNewOpening: document.getElementById('learnNewOpening')
@@ -1646,7 +1645,7 @@ function updateMoveHistory() {
 function updateProgressDisplay() {
     // Check if elements exist
     if (!elements.progressBar || !elements.progressText || 
-        !elements.totalProgress || !elements.openingsMastered) {
+        !elements.totalProgress) {
         console.warn('Progress display elements not found');
         return;
     }
@@ -1694,7 +1693,6 @@ function updateProgressDisplay() {
     
     const overallProgress = totalLines > 0 ? Math.round((completedLines / totalLines) * 100) : 0;
     elements.totalProgress.textContent = `${overallProgress}%`;
-    elements.openingsMastered.textContent = userProgress.masteredOpenings ? userProgress.masteredOpenings.length : 0;
 }
 
 // Filter openings in the library
