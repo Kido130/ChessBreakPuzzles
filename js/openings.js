@@ -17,7 +17,9 @@ let userProgress = {
     currentOpening: null,
     currentVariation: null,
     currentLine: null,
-    currentMoveIndex: 0 // Added to track the exact move the user was at
+    currentMoveIndex: 0, // Added to track the exact move the user was at
+    reviewMoves: [], // Moves that need to be reviewed
+    reviewedMoves: {} // Tracks which moves have been successfully reviewed
 };
 let moveSound = new Audio('Sounds/Move.MP3');
 let colorPreference = 'both'; // Default to both colors
@@ -36,6 +38,10 @@ let moveColors = {
     optionB: '#b5764e'  // Orange
 };
 let descriptions = {}; // Store opening descriptions
+let inReviewMode = false; // Whether we're reviewing previously learned moves
+let movesSinceLastReview = 0; // Count new moves since last review
+let currentReviewMoves = []; // Current moves being reviewed
+let currentReviewIndex = 0; // Index in the review moves
 
 // DOM Elements - Initialize after DOM is loaded
 let elements = {};
@@ -240,6 +246,14 @@ function loadUserProgress() {
             userProgress.completedLines = userProgress.completedLines || {};
             userProgress.masteredOpenings = userProgress.masteredOpenings || [];
             userProgress.colorPreference = userProgress.colorPreference || 'both';
+            userProgress.reviewMoves = userProgress.reviewMoves || [];
+            userProgress.reviewedMoves = userProgress.reviewedMoves || {};
+            
+            // Load global state variables
+            inReviewMode = userProgress.inReviewMode || false;
+            currentReviewMoves = userProgress.currentReviewMoves || [];
+            currentReviewIndex = userProgress.currentReviewIndex || 0;
+            movesSinceLastReview = userProgress.movesSinceLastReview || 0;
             
             // Load color preference
             colorPreference = userProgress.colorPreference;
@@ -275,7 +289,9 @@ function resetUserProgress() {
         learnedMoves: {},
         lastVisit: new Date().toString(),
         completedLines: {},
-        masteredOpenings: []
+        masteredOpenings: [],
+        reviewMoves: [], // Moves that need to be reviewed
+        reviewedMoves: {} // Tracks which moves have been successfully reviewed
     };
     saveUserProgress();
 }
@@ -287,6 +303,10 @@ function saveUserProgress() {
     userProgress.currentVariation = currentVariation;
     userProgress.currentLine = currentLine;
     userProgress.currentMoveIndex = currentMoveIndex; // Save the current move index
+    userProgress.inReviewMode = inReviewMode;
+    userProgress.currentReviewMoves = currentReviewMoves;
+    userProgress.currentReviewIndex = currentReviewIndex;
+    userProgress.movesSinceLastReview = movesSinceLastReview;
     userProgress.lastVisit = new Date().toString();
     localStorage.setItem('chessOpeningsProgress', JSON.stringify(userProgress));
 }
@@ -408,6 +428,13 @@ function loadSavedOpening() {
     
     if (userProgress.currentLine) {
         currentLine = userProgress.currentLine;
+        
+        // Load review state
+        inReviewMode = userProgress.inReviewMode || false;
+        currentReviewMoves = userProgress.currentReviewMoves || [];
+        currentReviewIndex = userProgress.currentReviewIndex || 0;
+        movesSinceLastReview = userProgress.movesSinceLastReview || 0;
+        
         // If there's a saved move index, we'll resume from there
         if (userProgress.currentMoveIndex && userProgress.currentMoveIndex > 0) {
             startLearningSession(userProgress.currentMoveIndex);
@@ -1162,14 +1189,109 @@ function handleMoveChoice(choice) {
     if (isCorrect) {
         // Apply the correct move
         if (move) {
-            // First, clear any move visualizations but after a tiny delay to avoid disrupting animation
+            // Clear any move visualizations after a small delay
             setTimeout(() => clearMoveVisualization(), 20);
             
             game.move(move);
             board.position(game.fen(), true); // Enable animation
             moveSound.play();
-            currentMoveIndex++;
-            updateMoveHistory();
+            
+            // Different handling based on review mode
+            if (inReviewMode) {
+                // In review mode, handle successful move review
+                currentReviewIndex++;
+                
+                // If we've reviewed all the moves
+                if (currentReviewIndex >= currentReviewMoves.length) {
+                    // Mark these moves as reviewed in user progress
+                    currentReviewMoves.forEach(reviewMove => {
+                        if (!userProgress.reviewedMoves[currentOpening]) {
+                            userProgress.reviewedMoves[currentOpening] = {};
+                        }
+                        if (!userProgress.reviewedMoves[currentOpening][currentVariation || 'Main Line']) {
+                            userProgress.reviewedMoves[currentOpening][currentVariation || 'Main Line'] = {};
+                        }
+                        
+                        const moveKey = `${reviewMove.fen}_${reviewMove.move}`;
+                        userProgress.reviewedMoves[currentOpening][currentVariation || 'Main Line'][moveKey] = true;
+                    });
+                    
+                    // Exit review mode
+                    inReviewMode = false;
+                    movesSinceLastReview = 0;
+                    
+                    // Show a message about successful review
+                    showMessage('Great job! Review complete. Moving on to new material.');
+                    
+                    // Move forward in the learning progression
+                    setTimeout(() => {
+                        // Reset the board to where we were in the main learning sequence
+                        game = new Chess();
+                        const moveList = parseMoves(currentLine);
+                        
+                        // Replay all moves up to current position
+                        for (let i = 0; i < currentMoveIndex; i++) {
+                            game.move(moveList[i]);
+                        }
+                        
+                        board.position(game.fen(), true);
+                        prepareNextMoveChoices();
+                    }, 1500);
+                } else {
+                    // Continue with the next review move
+                    setTimeout(() => {
+                        continueReview();
+                    }, 700);
+                }
+            } else {
+                // Normal learning mode
+                currentMoveIndex++;
+                updateMoveHistory();
+                
+                // Check if this is a new move that hasn't been reviewed yet
+                const moveKey = `${game.fen()}_${move}`;
+                const isReviewed = userProgress.reviewedMoves &&
+                                   userProgress.reviewedMoves[currentOpening] && 
+                                   userProgress.reviewedMoves[currentOpening][currentVariation || 'Main Line'] &&
+                                   userProgress.reviewedMoves[currentOpening][currentVariation || 'Main Line'][moveKey];
+                
+                // If this move hasn't been reviewed, add it to the review queue
+                if (!isReviewed) {
+                    // Add the move to the moves to be reviewed
+                    userProgress.reviewMoves.push({
+                        fen: game.fen(),
+                        move: move,
+                        position: currentMoveIndex - 1,
+                        openingName: currentOpening,
+                        variationName: currentVariation || 'Main Line'
+                    });
+                    
+                    // Count this as a new move since last review
+                    movesSinceLastReview++;
+                }
+                
+                // If we've learned 2 new moves, enter review mode
+                if (movesSinceLastReview >= 2) {
+                    // Set up for review mode
+                    inReviewMode = true;
+                    currentReviewMoves = userProgress.reviewMoves.slice(-2); // Get the last 2 moves
+                    currentReviewIndex = 0;
+                    
+                    // Save the state
+                    saveUserProgress();
+                    
+                    // Show message about entering review mode
+                    showMessage('Time to review what you just learned! Let\'s practice the last two moves again.');
+                    
+                    // Start review after a delay
+                    setTimeout(() => {
+                        startReview();
+                    }, 1500);
+                } else {
+                    // Continue with regular learning, computer's next move
+                    playNextComputerMove();
+                }
+            }
             
             // Save progress after each move
             saveUserProgress();
@@ -1179,10 +1301,7 @@ function handleMoveChoice(choice) {
         button.style.boxShadow = '0 0 10px 5px rgba(255, 255, 255, 0.5)';
         button.style.transform = 'scale(1.05)';
         
-        // Check if this is a new move learned
-        let isNewMove = false;
-        
-        // Add to learned moves
+        // Add to learned moves if not already learned
         if (!userProgress.learnedMoves[currentOpening]) {
             userProgress.learnedMoves[currentOpening] = {};
         }
@@ -1193,24 +1312,14 @@ function handleMoveChoice(choice) {
         // Create a key for this move
         const moveKey = `${game.fen()}_${move}`;
         
-        // Check if this move has already been learned
-        if (!userProgress.learnedMoves[currentOpening][currentVariation || 'Main Line'][moveKey]) {
-            userProgress.learnedMoves[currentOpening][currentVariation || 'Main Line'][moveKey] = true;
-            isNewMove = true;
-        }
+        // Mark this move as learned
+        userProgress.learnedMoves[currentOpening][currentVariation || 'Main Line'][moveKey] = true;
         
-        // Save progress
-        saveUserProgress();
-        
-        // Continue with the next move after a longer delay to allow animation to complete
+        // Reset visual feedback after a delay
         setTimeout(() => {
-            // Clear visual feedback
             button.style.boxShadow = '';
             button.style.transform = '';
-            
-            // Make the next move (computer's response)
-            playNextComputerMove(isNewMove);
-        }, 700); // Increased from 500ms to 700ms to ensure animation completes
+        }, 700);
     } else {
         // Clear move visualization after a small delay
         setTimeout(() => clearMoveVisualization(), 20);
@@ -1229,14 +1338,19 @@ function handleMoveChoice(choice) {
             button.style.boxShadow = '';
             button.style.transform = '';
             
-            // Continue with learning
-            prepareNextMoveChoices();
+            // If in review mode, repeat the current review position
+            if (inReviewMode) {
+                continueReview();
+            } else {
+                // Continue with normal learning
+                prepareNextMoveChoices();
+            }
         }, 2000);
     }
 }
 
 // Play computer's next move with animation
-function playNextComputerMove(wasNewUserMove = false) {
+function playNextComputerMove() {
     if (!currentLine) return;
     
     const moveList = parseMoves(currentLine);
@@ -1265,7 +1379,7 @@ function playNextComputerMove(wasNewUserMove = false) {
     
     updateMoveHistory();
     
-    // Wait for animation to complete before proceeding - use longer timeout
+    // Wait for animation to complete before proceeding
     setTimeout(() => {
         // If we reached the end, complete the line
         if (currentMoveIndex >= moveList.length) {
@@ -1274,7 +1388,7 @@ function playNextComputerMove(wasNewUserMove = false) {
             // Check if next move should be played by computer based on color preference
             prepareNextMoveChoices();
         }
-    }, 600); // Increased from 200ms to 600ms to ensure animation completes
+    }, 600);
 }
 
 // Complete the current line
@@ -1768,3 +1882,123 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
     document.head.appendChild(style);
 });
+
+// Start the review mode
+function startReview() {
+    if (!currentReviewMoves || currentReviewMoves.length === 0) {
+        inReviewMode = false;
+        prepareNextMoveChoices();
+        return;
+    }
+    
+    // Reset to the start position
+    game = new Chess();
+    board.position(game.fen(), true);
+    
+    // Continue with the review process
+    continueReview();
+}
+
+// Continue the review process
+function continueReview() {
+    if (!inReviewMode || currentReviewIndex >= currentReviewMoves.length) {
+        // Exit review mode if we've gone through all moves
+        inReviewMode = false;
+        movesSinceLastReview = 0;
+        saveUserProgress();
+        
+        // Return to the main learning session
+        game = new Chess();
+        const moveList = parseMoves(currentLine);
+        
+        // Replay all moves up to current position
+        for (let i = 0; i < currentMoveIndex; i++) {
+            game.move(moveList[i]);
+        }
+        
+        board.position(game.fen(), true);
+        prepareNextMoveChoices();
+        return;
+    }
+    
+    // Get the current move to review
+    const reviewMove = currentReviewMoves[currentReviewIndex];
+    
+    // Set the board to the position before this move
+    game = new Chess(reviewMove.fen);
+    board.position(game.fen(), true);
+    
+    // Prepare options for this move
+    prepareReviewMoveChoices(reviewMove);
+}
+
+// Prepare review move choices
+function prepareReviewMoveChoices(reviewMove) {
+    // Shuffle the color scheme
+    shuffleColorScheme();
+    
+    // Get the correct move (the one from the review)
+    const correctMove = reviewMove.move;
+    
+    // Get an incorrect move
+    const incorrectMove = getIncorrectMove(correctMove);
+    
+    // Randomly decide which button gets the correct move
+    const correctButton = Math.random() < 0.5 ? 'A' : 'B';
+    
+    // Set up the buttons
+    if (correctButton === 'A') {
+        elements.choiceA.textContent = formatSingleMove(correctMove);
+        elements.choiceA.dataset.move = correctMove;
+        elements.choiceA.dataset.correct = 'true';
+        
+        elements.choiceB.textContent = formatSingleMove(incorrectMove);
+        elements.choiceB.dataset.move = incorrectMove;
+        elements.choiceB.dataset.correct = 'false';
+    } else {
+        elements.choiceA.textContent = formatSingleMove(incorrectMove);
+        elements.choiceA.dataset.move = incorrectMove;
+        elements.choiceA.dataset.correct = 'false';
+        
+        elements.choiceB.textContent = formatSingleMove(correctMove);
+        elements.choiceB.dataset.move = correctMove;
+        elements.choiceB.dataset.correct = 'true';
+    }
+    
+    // Show the choice buttons
+    elements.choiceA.parentElement.parentElement.style.visibility = 'visible';
+    elements.choiceA.classList.remove('correct', 'incorrect');
+    elements.choiceB.classList.remove('correct', 'incorrect');
+    
+    // Show move options on the board
+    setTimeout(() => {
+        showMoveOptionsOnBoard(correctMove, incorrectMove);
+    }, 50);
+}
+
+// Show message to the user
+function showMessage(message) {
+    const messageEl = document.createElement('div');
+    messageEl.style.position = 'fixed';
+    messageEl.style.top = '50%';
+    messageEl.style.left = '50%';
+    messageEl.style.transform = 'translate(-50%, -50%)';
+    messageEl.style.backgroundColor = 'rgba(92, 139, 28, 0.9)';
+    messageEl.style.color = 'white';
+    messageEl.style.padding = '20px 30px';
+    messageEl.style.borderRadius = '5px';
+    messageEl.style.fontSize = '18px';
+    messageEl.style.fontWeight = 'bold';
+    messageEl.style.textAlign = 'center';
+    messageEl.style.zIndex = '1000';
+    messageEl.style.boxShadow = '0 4px 8px rgba(0,0,0,0.3)';
+    messageEl.style.transition = 'opacity 0.5s ease';
+    messageEl.innerHTML = message;
+    
+    document.body.appendChild(messageEl);
+    
+    setTimeout(() => {
+        messageEl.style.opacity = '0';
+        setTimeout(() => messageEl.remove(), 500);
+    }, 1200);
+}
