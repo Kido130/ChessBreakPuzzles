@@ -13,7 +13,11 @@ let currentMoveIndex = 0;
 let allOpenings = {};
 let userProgress = {
     learnedMoves: {},
-    completedLines: {}
+    completedLines: {},
+    currentOpening: null,
+    currentVariation: null,
+    currentLine: null,
+    currentMoveIndex: 0 // Added to track the exact move the user was at
 };
 let moveSound = new Audio('Sounds/Move.MP3');
 let colorPreference = 'both'; // Default to both colors
@@ -270,6 +274,7 @@ function resetUserProgress() {
         currentOpening: null,
         currentVariation: null,
         currentLine: null,
+        currentMoveIndex: 0, // Added to track progress at the move level
         colorPreference: 'both',
         learnedMoves: {},
         lastVisit: new Date().toString(),
@@ -281,6 +286,11 @@ function resetUserProgress() {
 
 // Save user progress to localStorage
 function saveUserProgress() {
+    // Update the current progress state
+    userProgress.currentOpening = currentOpening;
+    userProgress.currentVariation = currentVariation;
+    userProgress.currentLine = currentLine;
+    userProgress.currentMoveIndex = currentMoveIndex; // Save the current move index
     userProgress.lastVisit = new Date().toString();
     localStorage.setItem('chessOpeningsProgress', JSON.stringify(userProgress));
 }
@@ -345,6 +355,35 @@ function checkFirstTimeUser() {
     } else {
         // Returning user - load their current opening
         loadSavedOpening();
+        
+        // Show a welcome back message if they have progress
+        if (userProgress.currentMoveIndex > 0) {
+            const openingName = userProgress.currentOpening;
+            const variationName = userProgress.currentVariation || 'Main Line';
+            
+            // Create a temporary welcome back message
+            const welcomeMsg = document.createElement('div');
+            welcomeMsg.style.position = 'fixed';
+            welcomeMsg.style.top = '20px';
+            welcomeMsg.style.left = '50%';
+            welcomeMsg.style.transform = 'translateX(-50%)';
+            welcomeMsg.style.padding = '15px 20px';
+            welcomeMsg.style.backgroundColor = 'rgba(92, 139, 28, 0.9)';
+            welcomeMsg.style.color = 'white';
+            welcomeMsg.style.borderRadius = '5px';
+            welcomeMsg.style.zIndex = '2000';
+            welcomeMsg.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+            welcomeMsg.style.transition = 'opacity 0.5s ease';
+            welcomeMsg.innerHTML = `<strong>Welcome back!</strong> Continuing from move ${userProgress.currentMoveIndex} in ${openingName} (${variationName})`;
+            
+            document.body.appendChild(welcomeMsg);
+            
+            // Fade out and remove after 4 seconds
+            setTimeout(() => {
+                welcomeMsg.style.opacity = '0';
+                setTimeout(() => welcomeMsg.remove(), 500);
+            }, 4000);
+        }
     }
 }
 
@@ -373,7 +412,12 @@ function loadSavedOpening() {
     
     if (userProgress.currentLine) {
         currentLine = userProgress.currentLine;
-        startLearningSession();
+        // If there's a saved move index, we'll resume from there
+        if (userProgress.currentMoveIndex && userProgress.currentMoveIndex > 0) {
+            startLearningSession(userProgress.currentMoveIndex);
+        } else {
+            startLearningSession();
+        }
     } else {
         openVariationSelectionModal(currentOpening);
     }
@@ -756,7 +800,7 @@ function openVariationSelectionModal(openingName) {
 }
 
 // Start the learning session for the current opening/variation
-function startLearningSession() {
+function startLearningSession(savedMoveIndex = 0) {
     if (!currentOpening || !currentLine) {
         console.error('No opening or line selected');
         return;
@@ -769,13 +813,30 @@ function startLearningSession() {
     // Reset board and game
     game = new Chess();
     board.position(game.fen());
-    currentMoveIndex = 0;
+    
+    // If we have a saved position, restore to that move
+    if (savedMoveIndex > 0) {
+        const moveList = parseMoves(currentLine);
+        // Play all moves up to the saved position
+        for (let i = 0; i < savedMoveIndex && i < moveList.length; i++) {
+            game.move(moveList[i]);
+        }
+        currentMoveIndex = savedMoveIndex;
+        board.position(game.fen());
+    } else {
+        currentMoveIndex = 0;
+    }
     
     // Update move history
     updateMoveHistory();
     
-    // Play the first few moves based on color preference
-    playFirstMoves();
+    // If resuming from a saved position, go directly to move choices
+    if (savedMoveIndex > 0) {
+        prepareNextMoveChoices();
+    } else {
+        // Otherwise play the first few moves based on color preference
+        playFirstMoves();
+    }
 }
 
 // Play the first moves automatically based on color preference
@@ -1113,6 +1174,9 @@ function handleMoveChoice(choice) {
             moveSound.play();
             currentMoveIndex++;
             updateMoveHistory();
+            
+            // Save progress after each move
+            saveUserProgress();
         }
         
         // Use visual feedback that preserves the button's color
@@ -1287,6 +1351,10 @@ function playNextComputerMove(wasNewUserMove = false) {
     board.position(game.fen(), true); // Enable animation
     moveSound.play();
     currentMoveIndex++;
+    
+    // Save progress after computer's move
+    saveUserProgress();
+    
     updateMoveHistory();
     
     // Check if this was a computer move following a new user move
@@ -1314,6 +1382,9 @@ function playNextComputerMove(wasNewUserMove = false) {
 function startSetupTest() {
     // Save the current position as the target
     targetPosition = game.fen();
+    
+    // Save progress before starting the test
+    saveUserProgress();
     
     // Create a new modal for the setup test
     const setupModal = document.createElement('div');
@@ -1546,6 +1617,9 @@ function completeSetupTest(success) {
         // Continue with next move
         prepareNextMoveChoices();
     }
+    
+    // Save the current progress
+    saveUserProgress();
 }
 
 // Complete the current line
