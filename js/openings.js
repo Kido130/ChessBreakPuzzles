@@ -427,7 +427,21 @@ function loadSavedOpening() {
             startLearningSession(0);
         }
     } else {
-        openVariationSelectionModal(currentOpening);
+        // If no current line, use main line of the opening instead of showing selection modal
+        currentVariation = 'Main Line';
+        userProgress.currentVariation = currentVariation;
+        
+        // Get main line moves from the opening
+        const opening = allOpenings[currentOpening];
+        if (opening && opening.moves) {
+            currentLine = opening.moves;
+            userProgress.currentLine = currentLine;
+            saveUserProgress();
+            startLearningSession(0);
+        } else {
+            // Only show modal if we couldn't load a valid main line
+            openVariationSelectionModal(currentOpening);
+        }
     }
 }
 
