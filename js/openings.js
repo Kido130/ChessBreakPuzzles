@@ -1237,7 +1237,7 @@ function handleMoveChoice(choice) {
                 showMessage('Great! Moving to the next move.');
             } else {
                 // First time completing this move, ask to repeat it
-                showMessage('Good! Let\'s repeat this move once more to reinforce your learning.');
+                showMessage('Good! Let\'s check if you remember this move again.');
                 
                 // Store the current position details
                 const prevMoveIndex = currentMoveIndex - 1;
@@ -1287,7 +1287,7 @@ function handleMoveChoice(choice) {
                         
                         // Add "Repeat Move" text
                         const text = document.createElement('div');
-                        text.textContent = "Repeat This Move";
+                        text.textContent = "Which move do you think is next in this line?";
                         text.style.position = 'absolute';
                         text.style.top = '50%';
                         text.style.left = '50%';
