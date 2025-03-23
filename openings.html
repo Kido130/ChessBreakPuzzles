@@ -310,6 +310,20 @@
             right: 15px;
             font-size: 24px;
             cursor: pointer;
+            z-index: 10;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+        
+        .close-btn:hover {
+            background-color: rgba(0, 0, 0, 0.2);
+            transform: scale(1.1);
         }
         
         .opening-list, .variation-list, .line-list {
@@ -552,16 +566,21 @@
             display: flex;
             justify-content: space-between;
             margin-top: 10px;
+            gap: 8px;
         }
         
         .view-btn, .study-btn {
-            padding: 5px 10px;
+            flex: 1;
+            padding: 8px 12px;
             border: none;
-            border-radius: 3px;
+            border-radius: 4px;
             cursor: pointer;
             font-size: 14px;
-            transition: background-color 0.3s;
+            font-weight: 500;
+            transition: all 0.2s ease;
             color: white;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
         
         .view-btn {
@@ -570,6 +589,8 @@
         
         .view-btn:hover {
             background-color: #3a5d8c;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
         
         .study-btn {
@@ -578,6 +599,14 @@
         
         .study-btn:hover {
             background-color: #476a15;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .variation-item .study-btn {
+            display: block;
+            margin-top: 10px;
+            width: 100%;
         }
         
         /* Opening details styles in library */
@@ -647,6 +676,41 @@
         .completed-variation {
             background-color: rgba(92, 139, 28, 0.2);
             color: #bababa;
+        }
+        
+        .variation-item {
+            background-color: #252220;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            transition: background-color 0.3s;
+            border-left: 5px solid #4e7ab5;
+        }
+        
+        .variation-item:hover {
+            background-color: #2e2a24;
+        }
+        
+        .variation-item .opening-name {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+        
+        .variation-item .opening-plays {
+            font-size: 14px;
+            color: #a0a0a0;
+            margin-bottom: 8px;
+        }
+        
+        .variation-item .opening-moves {
+            margin-top: 8px;
+            font-family: monospace;
+            color: #a0a0a0;
+            line-height: 1.4;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #3e3932;
+            margin-bottom: 10px;
         }
     </style>
     <script>
@@ -836,25 +900,30 @@
             'about-link': 'about-modal',
             'contact-link': 'contact-modal',
             'privacy-link': 'privacy-modal',
-            'openingSelectionBtn': 'openingSelectionModal',
             'openingLibraryBtn': 'openingLibraryModal'
         };
         
         // Open modal when link is clicked
         Object.keys(modals).forEach(linkId => {
-            document.getElementById(linkId).addEventListener('click', function(event) {
-                if (event.target.id !== 'openingSelectionBtn' && event.target.id !== 'openingLibraryBtn') {
-                    event.preventDefault();
-                }
-                document.getElementById(modals[linkId]).style.display = 'block';
-            });
+            const element = document.getElementById(linkId);
+            if (element) {
+                element.addEventListener('click', function(event) {
+                    if (event.target.id !== 'openingLibraryBtn') {
+                        event.preventDefault();
+                    }
+                    document.getElementById(modals[linkId]).style.display = 'block';
+                });
+            }
         });
         
-        // Close modal when close button is clicked
-        document.querySelectorAll('.close-btn').forEach(closeBtn => {
-            closeBtn.addEventListener('click', function() {
-                this.closest('.modal').style.display = 'none';
-            });
+        // Close modal when close button is clicked - use event delegation for dynamically added elements
+        document.addEventListener('click', function(event) {
+            if (event.target.classList.contains('close-btn') || event.target.closest('.close-btn')) {
+                const modal = event.target.closest('.modal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+            }
         });
         
         // Close modal when clicking outside the modal content
