@@ -1122,6 +1122,11 @@ function parseMoveToSourceTarget(move) {
 function prepareNextMoveChoices() {
     const moveList = parseMoves(currentLine);
     
+    // Log the current move index and the corresponding move
+    console.log('prepareNextMoveChoices - currentMoveIndex:', currentMoveIndex);
+    console.log('moveList length:', moveList.length);
+    console.log('Next move to present:', moveList[currentMoveIndex]);
+    
     // Check if we've reached the end of the line
     if (currentMoveIndex >= moveList.length) {
         completeLine();
@@ -1234,14 +1239,79 @@ function handleMoveChoice(choice) {
                 // First time completing this move, ask to repeat it
                 showMessage('Good! Let\'s repeat this move once more to reinforce your learning.');
                 
+                // Store the current position details
+                const prevMoveIndex = currentMoveIndex - 1;
+                console.log('Will reset to move index:', prevMoveIndex);
+                
                 // Reset to the position before this move to repeat it
                 setTimeout(() => {
-                    // Undo the move we just made
-                    game.undo();
-                    board.position(game.fen(), true);
-                    currentMoveIndex--;
+                    try {
+                        // First try using undo
+                        game.undo();
+                        console.log('Undo successful');
+                    } catch (e) {
+                        console.error('Undo failed:', e);
+                        
+                        // Alternative approach: Replay the game up to the previous move
+                        console.log('Using alternative reset approach');
+                        game = new Chess(); // Reset to starting position
+                        const moveList = parseMoves(currentLine);
+                        
+                        // Replay all moves up to the previous position
+                        for (let i = 0; i < prevMoveIndex; i++) {
+                            game.move(moveList[i]);
+                        }
+                    }
                     
-                    // Prepare the same move choices again
+                    // Update the board position
+                    board.position(game.fen(), true);
+                    
+                    // Reset the move index
+                    currentMoveIndex = prevMoveIndex;
+                    console.log('Reset currentMoveIndex to:', currentMoveIndex);
+                    
+                    // Show a visual indicator that this is a review move
+                    const boardElement = document.getElementById('board');
+                    if (boardElement) {
+                        // Create a temporary overlay
+                        const overlay = document.createElement('div');
+                        overlay.style.position = 'absolute';
+                        overlay.style.top = '0';
+                        overlay.style.left = '0';
+                        overlay.style.right = '0';
+                        overlay.style.bottom = '0';
+                        overlay.style.backgroundColor = 'rgba(255, 215, 0, 0.3)'; // Subtle gold color
+                        overlay.style.zIndex = '90';
+                        overlay.style.pointerEvents = 'none'; // Don't block interactions
+                        overlay.style.transition = 'opacity 0.5s ease';
+                        
+                        // Add "Repeat Move" text
+                        const text = document.createElement('div');
+                        text.textContent = "Repeat This Move";
+                        text.style.position = 'absolute';
+                        text.style.top = '50%';
+                        text.style.left = '50%';
+                        text.style.transform = 'translate(-50%, -50%)';
+                        text.style.color = '#333';
+                        text.style.fontWeight = 'bold';
+                        text.style.textShadow = '0 0 5px white';
+                        text.style.fontSize = '22px';
+                        text.style.padding = '10px';
+                        text.style.backgroundColor = 'rgba(255, 255, 255, 0.7)';
+                        text.style.borderRadius = '5px';
+                        overlay.appendChild(text);
+                        
+                        boardElement.style.position = 'relative';
+                        boardElement.appendChild(overlay);
+                        
+                        // Fade out the overlay
+                        setTimeout(() => {
+                            overlay.style.opacity = '0';
+                            setTimeout(() => overlay.remove(), 500);
+                        }, 1500);
+                    }
+                    
+                    // Ensure prepareNextMoveChoices will present the same move again
                     setTimeout(() => {
                         prepareNextMoveChoices();
                     }, 500);
