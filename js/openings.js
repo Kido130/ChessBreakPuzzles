@@ -19,7 +19,8 @@ let userProgress = {
     currentLine: null,
     currentMoveIndex: 0, // Added to track the exact move the user was at
     reviewMoves: [], // Moves that need to be reviewed
-    reviewedMoves: {} // Tracks which moves have been successfully reviewed
+    reviewedMoves: {}, // Tracks which moves have been successfully reviewed
+    moveCompletionCounts: {}
 };
 let moveSound = new Audio('Sounds/Move.MP3');
 let colorPreference = 'both'; // Default to both colors
@@ -248,6 +249,7 @@ function loadUserProgress() {
             userProgress.colorPreference = userProgress.colorPreference || 'both';
             userProgress.reviewMoves = userProgress.reviewMoves || [];
             userProgress.reviewedMoves = userProgress.reviewedMoves || {};
+            userProgress.moveCompletionCounts = userProgress.moveCompletionCounts || {};
             
             // Load global state variables
             inReviewMode = userProgress.inReviewMode || false;
@@ -291,7 +293,8 @@ function resetUserProgress() {
         completedLines: {},
         masteredOpenings: [],
         reviewMoves: [], // Moves that need to be reviewed
-        reviewedMoves: {} // Tracks which moves have been successfully reviewed
+        reviewedMoves: {}, // Tracks which moves have been successfully reviewed
+        moveCompletionCounts: {}
     };
     saveUserProgress();
 }
@@ -308,6 +311,10 @@ function saveUserProgress() {
     userProgress.currentReviewIndex = currentReviewIndex;
     userProgress.movesSinceLastReview = movesSinceLastReview;
     userProgress.lastVisit = new Date().toString();
+    
+    // Ensure moveCompletionCounts exists
+    userProgress.moveCompletionCounts = userProgress.moveCompletionCounts || {};
+    
     localStorage.setItem('chessOpeningsProgress', JSON.stringify(userProgress));
 }
 
@@ -1127,7 +1134,7 @@ function prepareNextMoveChoices() {
     if ((colorPreference === 'white' && !isWhiteMove) ||
         (colorPreference === 'black' && isWhiteMove)) {
         // This move should be played automatically by the computer
-        playNextMove();
+        playNextComputerMove();
         return;
     }
     
@@ -1196,104 +1203,52 @@ function handleMoveChoice(choice) {
             board.position(game.fen(), true); // Enable animation
             moveSound.play();
             
-            // Different handling based on review mode
-            if (inReviewMode) {
-                // In review mode, handle successful move review
-                currentReviewIndex++;
-                
-                // If we've reviewed all the moves
-                if (currentReviewIndex >= currentReviewMoves.length) {
-                    // Mark these moves as reviewed in user progress
-                    currentReviewMoves.forEach(reviewMove => {
-                        if (!userProgress.reviewedMoves[currentOpening]) {
-                            userProgress.reviewedMoves[currentOpening] = {};
-                        }
-                        if (!userProgress.reviewedMoves[currentOpening][currentVariation || 'Main Line']) {
-                            userProgress.reviewedMoves[currentOpening][currentVariation || 'Main Line'] = {};
-                        }
-                        
-                        const moveKey = `${reviewMove.fen}_${reviewMove.move}`;
-                        userProgress.reviewedMoves[currentOpening][currentVariation || 'Main Line'][moveKey] = true;
-                    });
-                    
-                    // Exit review mode
-                    inReviewMode = false;
-                    movesSinceLastReview = 0;
-                    
-                    // Show a message about successful review
-                    showMessage('Great job! Review complete. Moving on to new material.');
-                    
-                    // Move forward in the learning progression
-                    setTimeout(() => {
-                        // Reset the board to where we were in the main learning sequence
-                        game = new Chess();
-                        const moveList = parseMoves(currentLine);
-                        
-                        // Replay all moves up to current position
-                        for (let i = 0; i < currentMoveIndex; i++) {
-                            game.move(moveList[i]);
-                        }
-                        
-                        board.position(game.fen(), true);
-                        prepareNextMoveChoices();
-                    }, 1500);
-                } else {
-                    // Continue with the next review move
-                    setTimeout(() => {
-                        continueReview();
-                    }, 700);
-                }
-            } else {
-                // Normal learning mode
-                currentMoveIndex++;
-                updateMoveHistory();
-                
-                // Check if this is a new move that hasn't been reviewed yet
-                const moveKey = `${game.fen()}_${move}`;
-                const isReviewed = userProgress.reviewedMoves &&
-                                   userProgress.reviewedMoves[currentOpening] && 
-                                   userProgress.reviewedMoves[currentOpening][currentVariation || 'Main Line'] &&
-                                   userProgress.reviewedMoves[currentOpening][currentVariation || 'Main Line'][moveKey];
-                
-                // If this move hasn't been reviewed, add it to the review queue
-                if (!isReviewed) {
-                    // Add the move to the moves to be reviewed
-                    userProgress.reviewMoves.push({
-                        fen: game.fen(),
-                        move: move,
-                        position: currentMoveIndex - 1,
-                        openingName: currentOpening,
-                        variationName: currentVariation || 'Main Line'
-                    });
-                    
-                    // Count this as a new move since last review
-                    movesSinceLastReview++;
-                }
-                
-                // If we've learned 2 new moves, enter review mode
-                if (movesSinceLastReview >= 2) {
-                    // Set up for review mode
-                    inReviewMode = true;
-                    currentReviewMoves = userProgress.reviewMoves.slice(-2); // Get the last 2 moves
-                    currentReviewIndex = 0;
-                    
-                    // Save the state
-                    saveUserProgress();
-                    
-                    // Show message about entering review mode
-                    showMessage('Time to review what you just learned! Let\'s practice the last two moves again.');
-                    
-                    // Start review after a delay
-                    setTimeout(() => {
-                        startReview();
-                    }, 1500);
-                } else {
-                    // Continue with regular learning, computer's next move
-                    playNextComputerMove();
-                }
+            // Create a key for tracking this move
+            const moveKey = `${game.fen()}_${move}`;
+            
+            // Initialize tracking structures if needed
+            if (!userProgress.moveCompletionCounts) {
+                userProgress.moveCompletionCounts = {};
+            }
+            if (!userProgress.moveCompletionCounts[currentOpening]) {
+                userProgress.moveCompletionCounts[currentOpening] = {};
+            }
+            if (!userProgress.moveCompletionCounts[currentOpening][currentVariation || 'Main Line']) {
+                userProgress.moveCompletionCounts[currentOpening][currentVariation || 'Main Line'] = {};
             }
             
-            // Save progress after each move
+            // Track how many times this move has been completed correctly
+            const currentCount = userProgress.moveCompletionCounts[currentOpening][currentVariation || 'Main Line'][moveKey] || 0;
+            userProgress.moveCompletionCounts[currentOpening][currentVariation || 'Main Line'][moveKey] = currentCount + 1;
+            
+            // Update move history in UI
+            currentMoveIndex++;
+            updateMoveHistory();
+            
+            // Check if the move has been completed twice
+            if (userProgress.moveCompletionCounts[currentOpening][currentVariation || 'Main Line'][moveKey] >= 2) {
+                // Move has been completed at least twice, proceed to next move
+                playNextComputerMove();
+                showMessage('Great! Moving to the next move.');
+            } else {
+                // First time completing this move, ask to repeat it
+                showMessage('Good! Let\'s repeat this move once more to reinforce your learning.');
+                
+                // Reset to the position before this move to repeat it
+                setTimeout(() => {
+                    // Undo the move we just made
+                    game.undo();
+                    board.position(game.fen(), true);
+                    currentMoveIndex--;
+                    
+                    // Prepare the same move choices again
+                    setTimeout(() => {
+                        prepareNextMoveChoices();
+                    }, 500);
+                }, 1000);
+            }
+            
+            // Save progress
             saveUserProgress();
         }
         
@@ -1338,13 +1293,8 @@ function handleMoveChoice(choice) {
             button.style.boxShadow = '';
             button.style.transform = '';
             
-            // If in review mode, repeat the current review position
-            if (inReviewMode) {
-                continueReview();
-            } else {
-                // Continue with normal learning
-                prepareNextMoveChoices();
-            }
+            // Continue with normal learning (stay at the same position)
+            prepareNextMoveChoices();
         }, 2000);
     }
 }
@@ -1882,99 +1832,6 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
     document.head.appendChild(style);
 });
-
-// Start the review mode
-function startReview() {
-    if (!currentReviewMoves || currentReviewMoves.length === 0) {
-        inReviewMode = false;
-        prepareNextMoveChoices();
-        return;
-    }
-    
-    // Reset to the start position
-    game = new Chess();
-    board.position(game.fen(), true);
-    
-    // Continue with the review process
-    continueReview();
-}
-
-// Continue the review process
-function continueReview() {
-    if (!inReviewMode || currentReviewIndex >= currentReviewMoves.length) {
-        // Exit review mode if we've gone through all moves
-        inReviewMode = false;
-        movesSinceLastReview = 0;
-        saveUserProgress();
-        
-        // Return to the main learning session
-        game = new Chess();
-        const moveList = parseMoves(currentLine);
-        
-        // Replay all moves up to current position
-        for (let i = 0; i < currentMoveIndex; i++) {
-            game.move(moveList[i]);
-        }
-        
-        board.position(game.fen(), true);
-        prepareNextMoveChoices();
-        return;
-    }
-    
-    // Get the current move to review
-    const reviewMove = currentReviewMoves[currentReviewIndex];
-    
-    // Set the board to the position before this move
-    game = new Chess(reviewMove.fen);
-    board.position(game.fen(), true);
-    
-    // Prepare options for this move
-    prepareReviewMoveChoices(reviewMove);
-}
-
-// Prepare review move choices
-function prepareReviewMoveChoices(reviewMove) {
-    // Shuffle the color scheme
-    shuffleColorScheme();
-    
-    // Get the correct move (the one from the review)
-    const correctMove = reviewMove.move;
-    
-    // Get an incorrect move
-    const incorrectMove = getIncorrectMove(correctMove);
-    
-    // Randomly decide which button gets the correct move
-    const correctButton = Math.random() < 0.5 ? 'A' : 'B';
-    
-    // Set up the buttons
-    if (correctButton === 'A') {
-        elements.choiceA.textContent = formatSingleMove(correctMove);
-        elements.choiceA.dataset.move = correctMove;
-        elements.choiceA.dataset.correct = 'true';
-        
-        elements.choiceB.textContent = formatSingleMove(incorrectMove);
-        elements.choiceB.dataset.move = incorrectMove;
-        elements.choiceB.dataset.correct = 'false';
-    } else {
-        elements.choiceA.textContent = formatSingleMove(incorrectMove);
-        elements.choiceA.dataset.move = incorrectMove;
-        elements.choiceA.dataset.correct = 'false';
-        
-        elements.choiceB.textContent = formatSingleMove(correctMove);
-        elements.choiceB.dataset.move = correctMove;
-        elements.choiceB.dataset.correct = 'true';
-    }
-    
-    // Show the choice buttons
-    elements.choiceA.parentElement.parentElement.style.visibility = 'visible';
-    elements.choiceA.classList.remove('correct', 'incorrect');
-    elements.choiceB.classList.remove('correct', 'incorrect');
-    
-    // Show move options on the board
-    setTimeout(() => {
-        showMoveOptionsOnBoard(correctMove, incorrectMove);
-    }, 50);
-}
 
 // Show message to the user
 function showMessage(message) {
