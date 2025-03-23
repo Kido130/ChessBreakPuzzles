@@ -526,8 +526,8 @@ function populateOpeningSelection(openings, isFirstTime = false) {
         
         openingItem.innerHTML = `
             <div class="opening-name">${opening.name}</div>
-            <div class="opening-plays">${numberWithCommas(plays)} plays</div>
             ${progressStatus}
+            <div class="opening-plays">${numberWithCommas(plays)} plays</div>
         `;
         
         openingItem.addEventListener('click', () => {
@@ -548,6 +548,31 @@ function populateOpeningSelection(openings, isFirstTime = false) {
             title.textContent = 'Welcome! Select an opening to learn';
         }
     }
+}
+
+// Get recommended color for an opening
+function getRecommendedColor(openingName) {
+    // Common white openings
+    const whiteOpenings = [
+        "Ruy Lopez", "Italian Game", "Scotch Game", "Vienna Game", "King's Gambit",
+        "London System", "Queen's Gambit", "English Opening", "Catalan Opening",
+        "Réti Opening", "King's Indian Attack", "Colle System"
+    ];
+
+    // Common black openings
+    const blackOpenings = [
+        "Sicilian Defense", "French Defense", "Caro-Kann Defense", "Pirc Defense",
+        "Modern Defense", "Alekhine's Defense", "Dutch Defense", "King's Indian Defense",
+        "Nimzo-Indian Defense", "Queen's Indian Defense", "Grünfeld Defense",
+        "Benoni Defense", "Benko Gambit", "Scandinavian Defense"
+    ];
+
+    if (whiteOpenings.some(opening => openingName.includes(opening))) {
+        return "white";
+    } else if (blackOpenings.some(opening => openingName.includes(opening))) {
+        return "black";
+    }
+    return "both";
 }
 
 // Populate the library openings list
@@ -581,64 +606,58 @@ function populateLibraryOpenings(openings) {
             progressStatus = `<div class="opening-progress started">${totalMovesTried} moves tried</div>`;
         }
         
-        // Get description for the opening or generate a generic one
-        let descriptionText = "";
-        if (descriptions[opening.name] && descriptions[opening.name].description) {
-            descriptionText = `<div class="opening-description">${descriptions[opening.name].description}</div>`;
-        } else {
-            // Generate generic description based on opening name
-            const isWhiteOpening = !opening.name.toLowerCase().includes("defense") && 
-                                  !opening.name.toLowerCase().includes("defence") && 
-                                  !opening.name.toLowerCase().includes("indian") &&
-                                  !opening.name.toLowerCase().includes("benoni");
-            
-            let genericDesc = isWhiteOpening ? 
-                `An opening for White that aims to establish control and create active piece play.` :
-                `A defensive system for Black that creates counterplay while developing pieces harmoniously.`;
-                
-            if (opening.name.toLowerCase().includes("gambit")) {
-                genericDesc = `A gambit where ${isWhiteOpening ? 'White' : 'Black'} sacrifices material for rapid development and attacking chances.`;
-            }
-            
-            descriptionText = `<div class="opening-description">${genericDesc}</div>`;
-            
-            // Store this description for future use
-            if (!descriptions[opening.name]) {
-                descriptions[opening.name] = { description: genericDesc };
-            }
-        }
+        // Get description for the opening
+        let descriptionText = descriptions[opening.name] ? 
+            descriptions[opening.name].description : 
+            generateGenericDescription(opening.name);
         
-        openingItem.className = `opening-item ${progressClass}`;
+        // Get recommended color
+        const recommendedColor = getRecommendedColor(opening.name);
+        const colorText = recommendedColor !== 'both' ? 
+            `<div class="recommended-color">(recommended as ${recommendedColor})</div>` : '';
+        
         openingItem.innerHTML = `
             <div class="opening-name">${opening.name}</div>
-            <div class="opening-plays">${numberWithCommas(opening.totalPlays)} plays</div>
-            ${descriptionText}
+            ${colorText}
+            <div class="opening-plays">${opening.totalPlays.toLocaleString()} games played</div>
+            <div class="opening-description">${descriptionText}</div>
             ${progressStatus}
             <div class="item-actions">
                 <button class="study-btn">Study Opening</button>
             </div>
         `;
         
-        // Add event listener to the button
+        // Add click handler for the study button
         const studyBtn = openingItem.querySelector('.study-btn');
-        
         studyBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            // Set current opening
             currentOpening = opening.name;
             userProgress.currentOpening = opening.name;
             saveUserProgress();
             
-            // Update currently studying display
-            const displayText = `${opening.name}: Main Line`;
-            elements.currentOpeningDisplay.textContent = displayText;
-            
+            // Hide opening list
             elements.libraryOpeningList.classList.add('hidden');
+            
+            // Open variation selection
             openLibraryVariationSelection(opening.name);
         });
         
         elements.libraryOpeningList.appendChild(openingItem);
     });
 }
+
+// Add CSS for recommended color text
+const style = document.createElement('style');
+style.textContent = `
+    .recommended-color {
+        font-size: 14px;
+        color: #5c8b1c;
+        font-style: italic;
+        margin-left: 8px;
+    }
+`;
+document.head.appendChild(style);
 
 // Get total number of moves tried for an opening across all variations
 function getTotalMovesTried(openingName) {

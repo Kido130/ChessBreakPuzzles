@@ -380,6 +380,8 @@
         
         #openingSearch {
             width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
             padding: 10px;
             margin-top: 15px;
             background-color: #3e3932;
@@ -509,6 +511,8 @@
             cursor: pointer;
             transition: background-color 0.3s;
             position: relative;
+            display: flex;
+            flex-direction: column;
         }
         
         .currently-studying {
@@ -567,6 +571,8 @@
             justify-content: space-between;
             margin-top: 10px;
             gap: 8px;
+            margin-top: auto;
+            padding-top: 10px;
         }
         
         .view-btn, .study-btn {
@@ -607,6 +613,7 @@
             display: block;
             margin-top: 10px;
             width: 100%;
+            margin-top: auto;
         }
         
         /* Opening details styles in library */
@@ -685,6 +692,8 @@
             margin-bottom: 10px;
             transition: background-color 0.3s;
             border-left: 5px solid #4e7ab5;
+            display: flex;
+            flex-direction: column;
         }
         
         .variation-item:hover {
@@ -721,6 +730,21 @@
             padding: 5px 0;
             border-top: 1px solid #3e3932;
             border-bottom: 1px solid #3e3932;
+        }
+        
+        .recommended-color {
+            display: block;
+            font-size: 14px;
+            color: #5c8b1c;
+            font-style: italic;
+            margin-top: 4px;
+            margin-bottom: 8px;
+        }
+        
+        .opening-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 4px;
         }
     </style>
     <script>
