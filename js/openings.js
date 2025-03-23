@@ -581,25 +581,25 @@ function populateLibraryOpenings(openings) {
             progressStatus = `<div class="opening-progress started">${totalMovesTried} moves tried</div>`;
         }
         
+        // Get description for the opening
+        let descriptionText = "";
+        if (descriptions[opening.name] && descriptions[opening.name].description) {
+            descriptionText = `<div class="opening-description">${descriptions[opening.name].description}</div>`;
+        }
+        
         openingItem.className = `opening-item ${progressClass}`;
         openingItem.innerHTML = `
             <div class="opening-name">${opening.name}</div>
             <div class="opening-plays">${numberWithCommas(opening.totalPlays)} plays</div>
+            ${descriptionText}
             ${progressStatus}
             <div class="item-actions">
-                <button class="view-btn">View Details</button>
                 <button class="study-btn">Study Opening</button>
             </div>
         `;
         
-        // Add event listeners to buttons
-        const viewBtn = openingItem.querySelector('.view-btn');
+        // Add event listener to the button
         const studyBtn = openingItem.querySelector('.study-btn');
-        
-        viewBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            showOpeningDetails(opening.name);
-        });
         
         studyBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1871,9 +1871,77 @@ async function loadOpeningDescriptions() {
         const data = await response.json();
         descriptions = data.openings;
         console.log('Loaded opening descriptions:', descriptions);
+        
+        // Add additional descriptions for openings that might not be in the file
+        const additionalDescriptions = {
+            "Pirc Defense": {
+                "description": "Black allows White to build a strong center with pawns, then undermines it with piece pressure and timely counterattacks."
+            },
+            "Modern Defense": {
+                "description": "Similar to the Pirc, Black develops the king's bishop via fianchetto and allows White to occupy the center before challenging it."
+            },
+            "Alekhine's Defense": {
+                "description": "Black tempts White to advance pawns in pursuit of the knight, aiming to undermine the resulting pawn structure."
+            },
+            "Dutch Defense": {
+                "description": "Black immediately fights for control of the e4 square with f5, creating asymmetrical positions with distinct pawn structures."
+            },
+            "Grünfeld Defense": {
+                "description": "Black allows White to establish a strong pawn center, then immediately challenges it with piece pressure and the d5 break."
+            },
+            "Benoni Defense": {
+                "description": "Black concedes central space to White, countering with pressure against White's central pawns from the flanks."
+            },
+            "Benko Gambit": {
+                "description": "Black sacrifices a pawn for long-lasting pressure on White's queenside, aiming for open lines and active piece play."
+            },
+            "Vienna Game": {
+                "description": "White develops the knight before pushing pawns, maintaining flexibility in the center while preparing kingside action."
+            },
+            "King's Gambit": {
+                "description": "White sacrifices a pawn to accelerate development and open lines against Black's king, leading to sharp tactical positions."
+            },
+            "Budapest Gambit": {
+                "description": "Black sacrifices a pawn to develop quickly and create immediate threats against White's center."
+            },
+            "London System": {
+                "description": "White develops pieces to standard squares, creating a solid structure that can be used against various Black setups."
+            },
+            "Catalan Opening": {
+                "description": "White combines d4 with a kingside fianchetto, creating pressure on the central dark squares while maintaining a solid position."
+            },
+            "Réti Opening": {
+                "description": "White controls the center with pieces rather than pawns, preparing for strategic battles based on piece activity."
+            }
+        };
+        
+        // Merge with existing descriptions
+        descriptions = {...descriptions, ...additionalDescriptions};
+        
     } catch (error) {
         console.error('Error loading opening descriptions:', error);
-        descriptions = {}; // Default to empty if loading fails
+        
+        // Fallback with some basic descriptions if loading fails
+        descriptions = {
+            "Sicilian Defense": {
+                "description": "Black immediately challenges White's center control, creating asymmetrical positions with dynamic counterplay."
+            },
+            "Italian Game": {
+                "description": "White develops the bishop to an active diagonal, targeting Black's f7 square while preparing castling."
+            },
+            "Queen's Gambit": {
+                "description": "White offers a pawn to control the center, gaining spatial advantage and better piece development."
+            },
+            "French Defense": {
+                "description": "Black establishes a solid pawn chain but initially restricts the king's bishop development."
+            },
+            "King's Indian Defense": {
+                "description": "Black allows White to establish a broad pawn center, then challenges it with piece pressure."
+            },
+            "Ruy Lopez": {
+                "description": "White develops the bishop to apply pressure on Black's knight, creating complex strategic positions."
+            }
+        };
     }
 }
 
