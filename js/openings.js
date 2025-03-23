@@ -189,13 +189,13 @@ async function loadOpenings() {
             updateProgressDisplay();
             
             // Check if user already has an opening they're studying
-            if (!userProgress.currentOpening || !userProgress.currentLine) {
-                // First-time user or no specific line selected, show selection modal
+            if (!userProgress.currentOpening) {
+                // First-time user, show selection modal
                 const topOpenings = getTopOpenings(5);
                 populateOpeningSelection(topOpenings, true);
                 openOpeningSelectionModal();
             } else {
-                // Returning user with an opening and line selected, load their progress directly
+                // Returning user with an opening selected, load their progress directly
                 loadSavedOpening();
             }
         } else {
@@ -2106,7 +2106,6 @@ function openLibraryVariationSelection(openingName) {
         <div class="opening-name">Main Line</div>
         <div class="opening-plays">${numberWithCommas(opening.plays)} plays</div>
         <div class="opening-description">${mainLineDesc}</div>
-        <div class="opening-moves">${formatMovesForDisplay(opening.moves)}</div>
         <div class="item-actions">
             <button class="study-btn">Study This Line</button>
         </div>
@@ -2170,7 +2169,6 @@ function openLibraryVariationSelection(openingName) {
                 <div class="opening-name">${variationName}</div>
                 <div class="opening-plays">${numberWithCommas(variation.plays)} plays</div>
                 <div class="opening-description">${variationDesc}</div>
-                <div class="opening-moves">${formatMovesForDisplay(variation.moves)}</div>
                 <div class="item-actions">
                     <button class="study-btn">Study This Line</button>
                 </div>
