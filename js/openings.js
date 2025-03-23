@@ -1316,7 +1316,7 @@ function handleMoveChoice(choice) {
                 console.log('Will reset to move index:', prevMoveIndex);
                 
                 // Reset to the position before this move to repeat it
-                setTimeout(() => {
+                    setTimeout(() => {
                     try {
                         // First try using undo
                         game.undo();
@@ -1396,7 +1396,7 @@ function handleMoveChoice(choice) {
             button.style.transform = '';
             
             // Continue with normal learning (stay at the same position)
-            prepareNextMoveChoices();
+                prepareNextMoveChoices();
         }, 2000);
     }
 }
@@ -2107,7 +2107,9 @@ function openLibraryVariationSelection(openingName) {
         <div class="opening-plays">${numberWithCommas(opening.plays)} plays</div>
         <div class="opening-description">${mainLineDesc}</div>
         <div class="opening-moves">${formatMovesForDisplay(opening.moves)}</div>
-        <button class="study-btn">Study This Line</button>
+        <div class="item-actions">
+            <button class="study-btn">Study This Line</button>
+        </div>
     `;
     
     mainLineItem.querySelector('.study-btn').addEventListener('click', () => {
@@ -2139,7 +2141,7 @@ function openLibraryVariationSelection(openingName) {
                 descriptions[openingName].variations && 
                 descriptions[openingName].variations[variationName]) {
                 variationDesc = descriptions[openingName].variations[variationName];
-            } else {
+    } else {
                 // Generate generic description
                 if (variationName.includes("Attack")) {
                     variationDesc = "An aggressive approach focused on direct attacks against the opponent's position.";
@@ -2169,7 +2171,9 @@ function openLibraryVariationSelection(openingName) {
                 <div class="opening-plays">${numberWithCommas(variation.plays)} plays</div>
                 <div class="opening-description">${variationDesc}</div>
                 <div class="opening-moves">${formatMovesForDisplay(variation.moves)}</div>
-                <button class="study-btn">Study This Line</button>
+                <div class="item-actions">
+                    <button class="study-btn">Study This Line</button>
+                </div>
             `;
             
             variationItem.querySelector('.study-btn').addEventListener('click', () => {
