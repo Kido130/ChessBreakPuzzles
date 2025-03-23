@@ -188,12 +188,14 @@ async function loadOpenings() {
             // Update UI after loading data
             updateProgressDisplay();
             
-            // If we're a first-time user, show the selection modal
-            if (!userProgress.currentOpening) {
+            // Check if user already has an opening they're studying
+            if (!userProgress.currentOpening || !userProgress.currentLine) {
+                // First-time user or no specific line selected, show selection modal
                 const topOpenings = getTopOpenings(5);
                 populateOpeningSelection(topOpenings, true);
                 openOpeningSelectionModal();
             } else {
+                // Returning user with an opening and line selected, load their progress directly
                 loadSavedOpening();
             }
         } else {
@@ -417,10 +419,12 @@ function loadSavedOpening() {
         movesSinceLastReview = userProgress.movesSinceLastReview || 0;
         
         // If there's a saved move index, we'll resume from there
-        if (userProgress.currentMoveIndex && userProgress.currentMoveIndex > 0) {
+        if (typeof userProgress.currentMoveIndex === 'number') {
+            // Always start learning session with the saved move index, even if it's 0
+            // This ensures we properly restore the exact position
             startLearningSession(userProgress.currentMoveIndex);
         } else {
-            startLearningSession();
+            startLearningSession(0);
         }
     } else {
         openVariationSelectionModal(currentOpening);
@@ -1295,6 +1299,9 @@ function handleMoveChoice(choice) {
             currentMoveIndex++;
             updateMoveHistory();
             
+            // Save progress immediately to ensure move count is stored
+            saveUserProgress();
+            
             // Check if the move has been completed twice
             if (userProgress.moveCompletionCounts[currentOpening][currentVariation || 'Main Line'][moveKey] >= 2) {
                 // Move has been completed at least twice, proceed to next move
@@ -1315,76 +1322,36 @@ function handleMoveChoice(choice) {
                         game.undo();
                         console.log('Undo successful');
                     } catch (e) {
-                        console.error('Undo failed:', e);
+                        console.warn('Undo failed, rebuilding position', e);
                         
-                        // Alternative approach: Replay the game up to the previous move
-                        console.log('Using alternative reset approach');
-                        game = new Chess(); // Reset to starting position
+                        // If undo fails, rebuild the position
+                        game = new Chess();
                         const moveList = parseMoves(currentLine);
                         
-                        // Replay all moves up to the previous position
+                        // Replay all moves up to the target position
                         for (let i = 0; i < prevMoveIndex; i++) {
                             game.move(moveList[i]);
                         }
                     }
                     
-                    // Update the board position
-                    board.position(game.fen(), true);
+                    // Update board position
+                    board.position(game.fen());
                     
-                    // Reset the move index
+                    // Reset current move index
                     currentMoveIndex = prevMoveIndex;
-                    console.log('Reset currentMoveIndex to:', currentMoveIndex);
                     
-                    // Show a visual indicator that this is a review move
-                    const boardElement = document.getElementById('board');
-                    if (boardElement) {
-                        // Create a temporary overlay
-                        const overlay = document.createElement('div');
-                        overlay.style.position = 'absolute';
-                        overlay.style.top = '0';
-                        overlay.style.left = '0';
-                        overlay.style.right = '0';
-                        overlay.style.bottom = '0';
-                        overlay.style.backgroundColor = 'rgba(255, 215, 0, 0.3)'; // Subtle gold color
-                        overlay.style.zIndex = '90';
-                        overlay.style.pointerEvents = 'none'; // Don't block interactions
-                        overlay.style.transition = 'opacity 0.5s ease';
-                        
-                        // Add "Repeat Move" text
-                        const text = document.createElement('div');
-                        text.textContent = "Which move do you think is next in this line?";
-                        text.style.position = 'absolute';
-                        text.style.top = '50%';
-                        text.style.left = '50%';
-                        text.style.transform = 'translate(-50%, -50%)';
-                        text.style.color = '#333';
-                        text.style.fontWeight = 'bold';
-                        text.style.textShadow = '0 0 5px white';
-                        text.style.fontSize = '22px';
-                        text.style.padding = '10px';
-                        text.style.backgroundColor = 'rgba(255, 255, 255, 0.7)';
-                        text.style.borderRadius = '5px';
-                        overlay.appendChild(text);
-                        
-                        boardElement.style.position = 'relative';
-                        boardElement.appendChild(overlay);
-                        
-                        // Fade out the overlay
-                        setTimeout(() => {
-                            overlay.style.opacity = '0';
-                            setTimeout(() => overlay.remove(), 500);
-                        }, 1500);
-                    }
+                    // Update move history display
+                    updateMoveHistory();
                     
-                    // Ensure prepareNextMoveChoices will present the same move again
+                    // Save the updated position with the corrected move index
+                    saveUserProgress();
+                    
+                    // Show choice buttons with a delay to allow animations to complete
                     setTimeout(() => {
                         prepareNextMoveChoices();
                     }, 500);
-                }, 1000);
+                }, 1200);
             }
-            
-            // Save progress
-            saveUserProgress();
         }
         
         // Use visual feedback that preserves the button's color
