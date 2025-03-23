@@ -36,10 +36,6 @@ let moveColors = {
     optionB: '#b5764e'  // Orange
 };
 let descriptions = {}; // Store opening descriptions
-let isSetupMode = false; // Track if we're in setup testing mode
-let newMovesLearned = 0; // Count of new moves learned since last setup test
-let targetPosition = ''; // The FEN of the position the user needs to set up
-let setupStartTime = null; // Track when the setup test started
 
 // DOM Elements - Initialize after DOM is loaded
 let elements = {};
@@ -1191,139 +1187,48 @@ function handleMoveChoice(choice) {
             userProgress.learnedMoves[currentOpening] = {};
         }
         if (!userProgress.learnedMoves[currentOpening][currentVariation || 'Main Line']) {
-            userProgress.learnedMoves[currentOpening][currentVariation || 'Main Line'] = [];
+            userProgress.learnedMoves[currentOpening][currentVariation || 'Main Line'] = {};
         }
         
-        const learnedMoves = userProgress.learnedMoves[currentOpening][currentVariation || 'Main Line'];
-        if (!learnedMoves.includes(currentMoveIndex - 1)) {
-            learnedMoves.push(currentMoveIndex - 1);
+        // Create a key for this move
+        const moveKey = `${game.fen()}_${move}`;
+        
+        // Check if this move has already been learned
+        if (!userProgress.learnedMoves[currentOpening][currentVariation || 'Main Line'][moveKey]) {
+            userProgress.learnedMoves[currentOpening][currentVariation || 'Main Line'][moveKey] = true;
             isNewMove = true;
-            newMovesLearned++;
         }
+        
+        // Save progress
         saveUserProgress();
         
-        // Update progress
-        updateProgressDisplay();
-        
-        // Wait for user's move animation to complete before making computer's move
+        // Continue with the next move after a short delay
         setTimeout(() => {
-            // Reset the button styling
+            // Clear visual feedback
             button.style.boxShadow = '';
             button.style.transform = '';
             
-            // Now prepare and play the computer's move with animation
+            // Make the next move (computer's response)
             playNextComputerMove(isNewMove);
-        }, 300); // Reduced from 400ms to 300ms
+        }, 500);
     } else {
-        // Store the current position before applying the incorrect move
-        const currentPosition = game.fen();
-        const correctMove = otherButton.dataset.move; // Store correct move for later
+        // Wrong choice feedback
+        button.classList.add('incorrect');
         
-        // Apply the incorrect move and show it briefly
-        if (move) {
-            try {
-                // Try to make the move - it might be illegal
-                const moveResult = game.move(move);
-                
-                if (moveResult) {
-                    // If the move was successfully applied
-                    board.position(game.fen(), true); // Enable animation
-                    moveSound.play();
-                    
-                    // Use visual feedback that preserves the button's color
-                    button.style.boxShadow = '0 0 10px 5px rgba(0, 0, 0, 0.5)';
-                    button.style.transform = 'scale(0.95)';
-                    
-                    // Highlight the correct choice
-                    otherButton.style.boxShadow = '0 0 10px 5px rgba(255, 255, 255, 0.5)';
-                    otherButton.style.transform = 'scale(1.05)';
-                    
-                    // Wait 500ms, then revert the move with animation
-                    setTimeout(() => {
-                        // Reset to the stored position instead of just undoing the move
-                        game.load(currentPosition);
-                        board.position(game.fen(), true); // Enable animation for reverting
-                        
-                        // Reset the button styling
-                        setTimeout(() => {
-                            button.style.boxShadow = '';
-                            button.style.transform = '';
-                            otherButton.style.boxShadow = '';
-                            otherButton.style.transform = '';
-                            
-                            // Show choice buttons again after animation
-                            resetMoveOptions(correctMove);
-                        }, 200); // Animation delay
-                    }, 500); // How long to show the incorrect move
-                } else {
-                    // The move was illegal
-                    handleInvalidMove(correctMove);
-                }
-            } catch (error) {
-                console.error("Error applying incorrect move:", error);
-                handleInvalidMove(correctMove);
-            }
-        } else {
-            handleInvalidMove(correctMove);
-        }
+        // Show visual cue for correct move
+        otherButton.classList.add('correct');
         
-        // Helper function to handle invalid moves
-        function handleInvalidMove(correctMove) {
-            // Just provide visual feedback without changing the board
-            button.style.boxShadow = '0 0 10px 5px rgba(0, 0, 0, 0.5)';
-            button.style.transform = 'scale(0.95)';
-            otherButton.style.boxShadow = '0 0 10px 5px rgba(255, 255, 255, 0.5)';
-            otherButton.style.transform = 'scale(1.05)';
+        // Wait a bit before continuing
+        setTimeout(() => {
+            // Clear visual feedback
+            button.classList.remove('incorrect');
+            otherButton.classList.remove('correct');
+            button.style.boxShadow = '';
+            button.style.transform = '';
             
-            setTimeout(() => {
-                button.style.boxShadow = '';
-                button.style.transform = '';
-                otherButton.style.boxShadow = '';
-                otherButton.style.transform = '';
-                
-                // Show choice buttons again
-                resetMoveOptions(correctMove);
-            }, 300);
-        }
-        
-        // Helper function to reset move options with the correct move
-        function resetMoveOptions(correctMove) {
-            const moveList = parseMoves(currentLine);
-            const incorrectMove = getIncorrectMove(correctMove);
-            
-            // Shuffle colors for new attempt
-            shuffleColorScheme();
-            
-            // Randomly decide which button gets the correct move
-            const correctButton = Math.random() < 0.5 ? 'A' : 'B';
-            
-            // Re-setup the buttons with proper assignments
-            if (correctButton === 'A') {
-                elements.choiceA.textContent = formatSingleMove(correctMove);
-                elements.choiceA.dataset.move = correctMove;
-                elements.choiceA.dataset.correct = 'true';
-                
-                elements.choiceB.textContent = formatSingleMove(incorrectMove);
-                elements.choiceB.dataset.move = incorrectMove;
-                elements.choiceB.dataset.correct = 'false';
-            } else {
-                elements.choiceA.textContent = formatSingleMove(incorrectMove);
-                elements.choiceA.dataset.move = incorrectMove;
-                elements.choiceA.dataset.correct = 'false';
-                
-                elements.choiceB.textContent = formatSingleMove(correctMove);
-                elements.choiceB.dataset.move = correctMove;
-                elements.choiceB.dataset.correct = 'true';
-            }
-            
-            // Make buttons visible again
-            elements.choiceA.parentElement.parentElement.style.visibility = 'visible';
-            
-            // Show move options after a slight delay
-            setTimeout(() => {
-                showMoveOptionsOnBoard(correctMove, incorrectMove);
-            }, 50);
-        }
+            // Continue with learning
+            prepareNextMoveChoices();
+        }, 2000);
     }
 }
 
@@ -1335,8 +1240,8 @@ function playNextComputerMove(wasNewUserMove = false) {
     
     // Check if we're at the end of the line
     if (currentMoveIndex >= moveList.length) {
-        // If at the end of the line, show setup test
-        startSetupTest();
+        // If at the end of the line, complete the line
+        completeLine();
         return;
     }
     
@@ -1357,269 +1262,16 @@ function playNextComputerMove(wasNewUserMove = false) {
     
     updateMoveHistory();
     
-    // Check if this was a computer move following a new user move
-    // and if we've learned 2 new moves (user move + computer move)
-    if (wasNewUserMove && (newMovesLearned % 2 === 0) && newMovesLearned > 0) {
-        // After animation completes, start setup test
-        setTimeout(() => {
-            startSetupTest();
-        }, 500);
-    } else {
-        // Wait for animation to complete before proceeding
-        setTimeout(() => {
-            // If we reached the end, complete the line
-            if (currentMoveIndex >= moveList.length) {
-                startSetupTest(); // Always test at end of line
-            } else {
-                // Check if next move should be played by computer based on color preference
-                prepareNextMoveChoices();
-            }
-        }, 200); // Wait for animation to complete
-    }
-}
-
-// Start the setup test mode
-function startSetupTest() {
-    // Save the current position as the target
-    targetPosition = game.fen();
-    
-    // Save progress before starting the test
-    saveUserProgress();
-    
-    // Create a new modal for the setup test
-    const setupModal = document.createElement('div');
-    setupModal.id = 'setupTestModal';
-    setupModal.className = 'modal';
-    setupModal.style.display = 'block';
-    
-    setupModal.innerHTML = `
-        <div class="modal-content setup-modal">
-            <h2>Position Setup Test</h2>
-            <p>Set up the board from the starting position to reach the current position.</p>
-            <div class="setup-instructions">
-                <p>Drag pieces to set up the position as you remember it.</p>
-                <p>This tests your knowledge of the ${currentOpening} opening.</p>
-            </div>
-            <div id="setupBoard" class="setup-board"></div>
-            <div class="setup-controls">
-                <button id="checkSetupBtn" class="control-btn">Check Position</button>
-                <button id="resetSetupBtn" class="control-btn">Reset to Start</button>
-                <button id="skipSetupBtn" class="control-btn">Skip Test</button>
-            </div>
-            <div id="setupFeedback" class="setup-feedback"></div>
-        </div>
-    `;
-    
-    // Add the modal to the document
-    document.body.appendChild(setupModal);
-    
-    // Create a new board for the setup test
-    const setupConfig = {
-        draggable: true,
-        position: 'start',
-        pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
-        sparePieces: true // Enable spare pieces for setup
-    };
-    
-    // Initialize the setup board after a short delay to ensure DOM is ready
+    // Wait for animation to complete before proceeding
     setTimeout(() => {
-        const setupBoard = Chessboard('setupBoard', setupConfig);
-        
-        // Add event listeners for setup controls
-        document.getElementById('checkSetupBtn').addEventListener('click', () => {
-            checkSetupPosition(setupBoard);
-        });
-        
-        document.getElementById('resetSetupBtn').addEventListener('click', () => {
-            setupBoard.position('start');
-        });
-        
-        document.getElementById('skipSetupBtn').addEventListener('click', () => {
-            completeSetupTest(false);
-        });
-        
-        // Start timing
-        setupStartTime = new Date();
-    }, 100);
-    
-    // Enter setup mode
-    isSetupMode = true;
-}
-
-// Check if the setup position matches the target position
-function checkSetupPosition(setupBoard) {
-    const setupFeedback = document.getElementById('setupFeedback');
-    
-    // Get the current position from the setup board
-    const setupPosition = setupBoard.position();
-    
-    // Create a new chess instance for validation
-    const setupGame = new Chess();
-    setupGame.load('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'); // Start position
-    
-    // Convert setup position to FEN
-    try {
-        // Clear the board first
-        setupGame.clear();
-        
-        // Place all pieces from the setup position
-        for (const square in setupPosition) {
-            const piece = setupPosition[square];
-            const color = piece.charAt(0) === 'w' ? 'w' : 'b';
-            const pieceType = piece.charAt(1).toLowerCase();
-            setupGame.put({ type: pieceType, color: color }, square);
-        }
-        
-        // Get FEN of the setup position (ignore castling rights and en passant for comparison)
-        const setupFen = setupGame.fen().split(' ')[0]; // Just compare piece positions
-        const targetFen = targetPosition.split(' ')[0];
-        
-        if (setupFen === targetFen) {
-            // Success!
-            setupFeedback.innerHTML = '<div class="success">Correct! Well done!</div>';
-            setupFeedback.style.color = 'green';
-            
-            // Calculate the time taken
-            const setupEndTime = new Date();
-            const timeInSeconds = Math.floor((setupEndTime - setupStartTime) / 1000);
-            
-            // Update feedback with timing
-            setupFeedback.innerHTML += `<div>Time taken: ${timeInSeconds} seconds</div>`;
-            
-            // After a short delay, complete the test
-            setTimeout(() => {
-                completeSetupTest(true);
-            }, 2000);
+        // If we reached the end, complete the line
+        if (currentMoveIndex >= moveList.length) {
+            completeLine();
         } else {
-            // Wrong position
-            setupFeedback.innerHTML = '<div class="error">Not quite right. Try again!</div>';
-            setupFeedback.style.color = 'red';
-            
-            // Compare piece by piece to give specific feedback
-            const differences = comparePositions(targetFen, setupFen);
-            if (differences.length > 0) {
-                let diffHtml = '<ul class="position-differences">';
-                differences.forEach(diff => {
-                    diffHtml += `<li>${diff}</li>`;
-                });
-                diffHtml += '</ul>';
-                setupFeedback.innerHTML += diffHtml;
-            }
+            // Check if next move should be played by computer based on color preference
+            prepareNextMoveChoices();
         }
-    } catch (error) {
-        console.error('Error validating setup:', error);
-        setupFeedback.innerHTML = 'Error validating board position. Please try again.';
-        setupFeedback.style.color = 'red';
-    }
-}
-
-// Compare two positions to give specific feedback
-function comparePositions(targetFen, setupFen) {
-    const differences = [];
-    
-    // Parse FEN strings to get board positions
-    const targetBoard = fenToBoard(targetFen);
-    const setupBoard = fenToBoard(setupFen);
-    
-    // Check for missing pieces in the setup
-    for (const square in targetBoard) {
-        const targetPiece = targetBoard[square];
-        const setupPiece = setupBoard[square];
-        
-        if (!setupPiece) {
-            differences.push(`Missing ${getPieceName(targetPiece)} on ${square}`);
-        } else if (targetPiece !== setupPiece) {
-            differences.push(`Wrong piece on ${square}. Should be ${getPieceName(targetPiece)}, not ${getPieceName(setupPiece)}`);
-        }
-    }
-    
-    // Check for extra pieces in the setup
-    for (const square in setupBoard) {
-        if (!targetBoard[square]) {
-            differences.push(`Extra ${getPieceName(setupBoard[square])} on ${square}`);
-        }
-    }
-    
-    // Limit to the first 5 differences to avoid overwhelming the user
-    return differences.slice(0, 5);
-}
-
-// Helper to convert FEN position to a board object
-function fenToBoard(fen) {
-    const board = {};
-    const rows = fen.split('/');
-    
-    let rankIndex = 8;
-    rows.forEach(row => {
-        let fileIndex = 0;
-        
-        for (let i = 0; i < row.length; i++) {
-            const char = row.charAt(i);
-            
-            if (/[1-8]/.test(char)) {
-                fileIndex += parseInt(char);
-            } else {
-                const file = String.fromCharCode(97 + fileIndex); // 'a' + fileIndex
-                const rank = rankIndex;
-                const square = file + rank;
-                board[square] = char;
-                fileIndex++;
-            }
-        }
-        
-        rankIndex--;
-    });
-    
-    return board;
-}
-
-// Helper to get human-readable piece name
-function getPieceName(pieceChar) {
-    const pieceNames = {
-        'P': 'White Pawn',
-        'N': 'White Knight',
-        'B': 'White Bishop',
-        'R': 'White Rook',
-        'Q': 'White Queen',
-        'K': 'White King',
-        'p': 'Black Pawn',
-        'n': 'Black Knight',
-        'b': 'Black Bishop',
-        'r': 'Black Rook',
-        'q': 'Black Queen',
-        'k': 'Black King'
-    };
-    
-    return pieceNames[pieceChar] || pieceChar;
-}
-
-// Complete the setup test and continue
-function completeSetupTest(success) {
-    // Remove the setup modal
-    const setupModal = document.getElementById('setupTestModal');
-    if (setupModal) {
-        setupModal.remove();
-    }
-    
-    // Reset the setup mode flag
-    isSetupMode = false;
-    
-    // Reset the new moves counter if successful
-    if (success) {
-        newMovesLearned = 0;
-    }
-    
-    // Continue based on where we were
-    if (currentMoveIndex >= parseMoves(currentLine).length) {
-        // We were at the end of a line
-        completeLine();
-    } else {
-        // Continue with next move
-        prepareNextMoveChoices();
-    }
-    
-    // Save the current progress
-    saveUserProgress();
+    }, 200); // Wait for animation to complete
 }
 
 // Complete the current line
