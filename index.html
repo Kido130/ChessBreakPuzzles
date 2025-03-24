@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google-adsense-account" content="ca-pub-1901232962883075">    <tle>ChessBreak - PUZZLES</title>
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 0;
+            background-color: #2e2a24;
+            color: #bababa;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Hide scrollbars but allow scrolling */
+        * {
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE and Edge */
+        }
+        
+        *::-webkit-scrollbar {
+            width: 0;
+            display: none; /* Chrome, Safari, Opera */
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.8vh 3.6vw; /* Increased by 20% */
+            background-color: #252220;
+            box-shadow: 0 0.2vh 0.5vh rgba(0, 0, 0, 0.2);
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+        }
+        
+        .title-container {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2.76vh; /* Increased by 20% */
+        }
+        
+        .subtitle {
+            font-size: 1.5vh;
+            color: #8a8a8a;
+            margin-top: 0.3vh;
+        }
+        
+        .nav-links {
+            display: flex;
+            margin-left: 3.6vw; /* Increased by 20% */
+        }
+        
+        .nav-links a {
+            color: #bababa;
+            text-decoration: none;
+            margin-right: 2.4vw; /* Increased by 20% */
+            font-size: 1.8vh; /* Increased by 20% */
+            padding: 0.6vh 0; /* Increased by 20% */
+            transition: color 0.2s;
+        }
+        
+        .nav-links a:hover {
+            color: #fff;
+        }
+        
+        .user-info {
+            display: flex;
+            gap: 2.4vw; /* Increased by 20% */
+            font-size: 1.8vh; /* Increased by 20% */
+        }
+        
+        .main-container {
+            display: flex;
+            flex-grow: 1;
+            height: calc(100vh - 8.4vh); /* Adjusted for larger header */
+            overflow: hidden; /* Prevent overlap */
+        }
+        
+        .left-ad, .right-ad {
+            width: 22%; /* Increased ad space */
+            background-color: #302e2c;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .center-panel {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2vh 0;
+            overflow-y: auto; /* Allow scrolling if needed */
+            max-width: 56%; /* Prevent overlap with ads */
+        }
+        
+        #board-container {
+            position: relative;
+            width: 43vw;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        #myBoard {
+            width: 100%;
+            margin: 0 auto;
+            box-shadow: 0 0.5vh 1.5vh rgba(0, 0, 0, 0.4);
+        }
+        
+        .puzzle-info-panel {
+            width: 43vw;
+            max-width: 600px;
+            background-color: #302e2c;
+            border-radius: 0.5vh;
+            padding: 1.5vh;
+            margin-top: 1.5vh;
+            box-shadow: 0 0.2vh 0.5vh rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+        
+        .puzzle-details {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1vh;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 1.5vw;
+            margin-top: 2vh;
+            position: relative;
+        }
+        
+        .action-button {
+            padding: 1vh 2vw;
+            background-color: #4a4542;
+            color: white;
+            border: none;
+            border-radius: 0.5vh;
+            cursor: pointer;
+            font-size: 1.5vh;
+            text-align: center;
+        }
+        
+        .action-button:hover {
+            background-color: #7d7e7a;
+        }
+        
+        #success-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.85);
+            color: #fff;
+            padding: 3vh 4vw;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 3vh;
+            z-index: 1000;
+            display: none;
+            min-width: 200px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        #success-message h2 {
+            color: #62ff00;
+            margin: 0 0 1vh 0;
+            font-size: 3.5vh;
+        }
+        
+        .rating-change {
+            font-size: 2.4vh;
+            margin: 1vh 0;
+            font-weight: bold;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+        
+        .rating-change.positive {
+            color: #62ff00;
+        }
+        
+        .rating-change.negative {
+            color: #ff4444;
+        }
+        
+        #user-rating {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            transition: color 0.3s ease;
+        }
+        
+        .rating-change-indicator {
+            position: absolute;
+            right: -30px;
+            font-size: 0.8em;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+        
+        #failure-indicator {
+            display: none;
+            position: absolute;
+            left: -8vw;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #c33;
+            font-weight: normal;
+            font-size: 1.8vh;
+        }
+        
+        #countdown-timer {
+            display: block;
+            font-size: 2.4vh;
+            margin-top: 1vh;
+        }
+        
+        #cancel-countdown {
+            background-color: #4a4542;
+            color: white;
+            border: none;
+            border-radius: 0.5vh;
+            padding: 0.8vh 1.6vh;
+            margin-top: 1vh;
+            cursor: pointer;
+            font-size: 1.8vh;
+        }
+        
+        #cancel-countdown:hover {
+            background-color: #7d7e7a;
+        }
+        
+        .move-indicator {
+            position: absolute;
+            font-size: 3.2vh;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 100;
+            transform: translate(-50%, -50%);
+        }
+        
+        .move-indicator.visible {
+            opacity: 1;
+        }
+        
+        .highlight-correct {
+            box-shadow: inset 0 0 0.3vh 0.3vh #629924;
+        }
+        
+        .highlight-wrong {
+            box-shadow: inset 0 0 0.3vh 0.3vh #c33;
+        }
+        
+        .highlight-hint {
+            box-shadow: inset 0 0 0.3vh 0.3vh #3498db;
+        }
+        
+        .ad-content {
+            height: 100%;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #848484;
+            font-size: 1.4vh;
+        }
+        
+        /* Turn indicator styles */
+        .turn-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.6vh 1vw;
+            border-radius: 0.4vh;
+            font-size: 2vh; /* Bigger text */
+            color: white;
+            z-index: 50;
+        }
+        
+        .turn-indicator .piece-icon {
+            width: 2.2vh; /* Bigger icon */
+            height: 2.2vh; /* Bigger icon */
+            margin-right: 0.6vw;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+        
+        .turn-indicator .white-turn {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="8" fill="white" stroke="black" stroke-width="1"/></svg>');
+        }
+        
+        .turn-indicator .black-turn {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="8" fill="black" stroke="white" stroke-width="1"/></svg>');
+        }
+        
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+        }
+        
+        .modal-content {
+            background-color: #302e2c;
+            margin: 10% auto;
+            padding: 2vh 2vw;
+            width: 70%;
+            max-width: 800px;
+            border-radius: 0.5vh;
+            box-shadow: 0 0.5vh 1.5vh rgba(0,0,0,0.5);
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        
+        .close-modal {
+            color: #aaa;
+            float: right;
+            font-size: 2.8vh;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close-modal:hover {
+            color: #fff;
+        }
+        
+        @media (max-width: 1100px) {
+            .main-container {
+                flex-direction: column;
+                height: auto;
+            }
+            
+            .left-ad, .right-ad {
+                width: 100%;
+                height: 12vh; /* Increased ad height */
+                order: -1;
+            }
+            
+            .right-ad {
+                order: 1;
+            }
+            
+            .center-panel {
+                order: 0;
+                max-width: 100%;
+            }
+            
+            .header {
+                flex-direction: column;
+                gap: 1.2vh; /* Increased */
+                padding: 1.2vh; /* Increased */
+            }
+            
+            .header-left {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .nav-links {
+                margin-left: 0;
+                margin-top: 1.2vh; /* Increased */
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            #board-container, #myBoard, .puzzle-info-panel {
+                width: 90vw;
+            }
+            
+            #failure-indicator {
+                left: 0;
+                top: -3vh;
+                transform: none;
+            }
+        }
+        
+        @media (max-width: 650px) {
+            #board-container, #myBoard, .puzzle-info-panel {
+                width: 90vw;
+                max-width: 320px;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            .modal-content {
+                width: 90%;
+                margin: 20% auto;
+            }
+            
+            #failure-indicator {
+                position: relative;
+                left: 0;
+                top: 0;
+                transform: none;
+                margin-bottom: 1vh;
+            }
+        }
+    </style>
+    <script>
+        // Dynamic sizing based on viewport dimensions
+        function adjustSizing() {
+            const referenceWidth = 1400;
+            const referenceHeight = 1050;
+            const boardContainer = document.getElementById('board-container');
+            
+            // Apply chessboard size to match aspect ratio
+            if (boardContainer) {
+                // Make sure the board is square
+                const width = boardContainer.offsetWidth;
+                boardContainer.style.height = `${width}px`;
+                
+                // Resize board if chessboard library is available
+                if (window.board && typeof window.board.resize === 'function') {
+                    window.board.resize();
+                }
+            }
+        }
+        
+        // Initialize and add resize listener
+        window.addEventListener('load', adjustSizing);
+        window.addEventListener('resize', adjustSizing);
+    </script>
+</head>
+<body>
+    <div class="header">
+        <div class="header-left">
+            <div class="title-container">
+                <h1>ChessBreak</h1>
+                <div class="subtitle">Puzzles</div>
+            </div>
+            <nav class="nav-links">
+                <a href="index.html">Puzzles</a>
+                <a href="openings.html">Openings</a>
+                <a href="#" id="about-link">About Us</a>
+                <a href="#" id="contact-link">Contact Us</a>
+                <a href="#" id="privacy-link">Privacy Policy</a>
+            </nav>
+        </div>
+        <div class="user-info">
+            <div>Rating: <span id="user-rating">650</span></div>
+            <div>Puzzles Solved: <span id="puzzles-solved">0</span></div>
+        </div>
+    </div>
+    
+    <div class="main-container">
+        <div class="left-ad">
+            <div class="ad-content">Advertisement</div>
+        </div>
+        
+        <div class="center-panel">
+            <div id="board-container">
+                <div id="myBoard"></div>
+                <div id="move-indicator" class="move-indicator"></div>
+                <div id="success-message">
+                    Success!
+                    <div id="countdown-timer">Next puzzle in: 5.0s</div>
+                    <button id="cancel-countdown">Skip Timer</button>
+                </div>
+            </div>
+            
+            <div class="puzzle-info-panel">
+                <div class="puzzle-details">
+                    <div>Puzzle ID: <span id="puzzle-id">-</span></div>
+                    <div id="puzzle-info">Loading puzzle...</div>
+                </div>
+                <div id="turn-indicator" class="turn-indicator">
+                    <div class="piece-icon white-turn"></div>
+                    <span>White to move</span>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <div id="failure-indicator">failed</div>
+                <button id="hint-button" class="action-button">Show Hint</button>
+                <button id="next-puzzle" class="action-button">Next Puzzle</button>
+            </div>
+        </div>
+        
+        <div class="right-ad">
+            <div class="ad-content">Advertisement</div>
+        </div>
+    </div>
+    
+    <!-- Modal for About Us -->
+    <div id="about-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>About Us</h2>
+            <p>ChessBreak Puzzles is designed to help you improve your chess skills through tactical puzzles and challenges. While all users are more than welcome to use our platform, it was primarily developed to support the ChessBreak Chrome Extension.</p>
+            <p>Our puzzles are carefully selected to help you develop pattern recognition, tactical vision, and strategic thinking - all essential skills for chess improvement.</p>
+            <p>Practice regularly with our puzzles to enhance your calculation abilities and decision-making at the board!</p>
+        </div>
+    </div>
+    
+    <!-- Modal for Contact Us -->
+    <div id="contact-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Contact Us</h2>
+            <p>Email us at: <a href="mailto:ChessPauseContactUs@gmail.com" style="color: #bababa;">ChessPauseContactUs@gmail.com</a></p>
+        </div>
+    </div>
+    
+    <!-- Modal for Privacy Policy -->
+    <div id="privacy-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Privacy Policy</h2>
+            <p><strong>Last updated:</strong> <span id="privacy-date"></span></p>
+            
+            <h3>1. We Do Not Collect Any Data</h3>
+            <p>ChessBreak Puzzles does not collect or transmit any of your personal information. We don't have servers that receive your data, we don't use analytics tools, and we don't track your usage patterns.</p>
+            
+            <h3>2. Local Data Storage Only</h3>
+            <p>All data from ChessBreak Puzzles is stored locally on your device using your browser's local storage. This includes:</p>
+            <ul>
+                <li>Your puzzle rating</li>
+                <li>Your puzzle-solving progress</li>
+                <li>Records of puzzles you've already solved</li>
+            </ul>
+            <p>This data never leaves your device and is only used to provide you with a better experience by tracking your progress and selecting appropriate puzzles for your skill level.</p>
+            
+            <h3>3. No Cookies or Tracking from ChessBreak</h3>
+            <p>ChessBreak Puzzles itself does not use cookies, web beacons, or similar technologies to track your activity.</p>
+            
+            <h3>4. Third-Party Content and Google Ads</h3>
+            <p>Our website may include third-party content such as Google Ads. Google and its partners may use cookies for ad personalization and measurement. These cookies and tracking technologies are set by Google, not by ChessBreak.</p>
+            
+            <h4>4.1. Google Ads and Cookies</h4>
+            <p>Google uses cookies to serve ads based on your prior visits to our website or other websites. Google's use of advertising cookies enables it and its partners to serve ads based on your visit to our site and/or other sites on the Internet.</p>
+            <p>You may opt out of personalized advertising by visiting <a href="https://www.google.com/settings/ads" style="color: #bababa;">Google Ads Settings</a>. Alternatively, you can opt out of third-party vendor's use of cookies for personalized advertising by visiting <a href="http://www.aboutads.info" style="color: #bababa;">www.aboutads.info</a>.</p>
+            
+            <h4>4.2. How Google uses cookies</h4>
+            <p>Google and its partners use various technologies to collect and store information when you visit our site, which may include using cookies or similar technologies to identify your browser or device. You can learn more about how Google uses cookies at <a href="https://policies.google.com/technologies/cookies" style="color: #bababa;">Google's Cookie Policy</a>.</p>
+            
+            <h3>5. Changes to This Privacy Policy</h3>
+            <p>We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page.</p>
+            
+            <h3>6. Contact Us</h3>
+            <p>If you have any questions about this Privacy Policy, please contact us at: <a href="mailto:ChessPauseContactUs@gmail.com" style="color: #bababa;">ChessPauseContactUs@gmail.com</a></p>
+        </div>
+    </div>
+
+    <!-- Fallback puzzles loader script -->
+    <script id="puzzles-loader">
+        // This will be dynamically replaced or used as fallback
+        window.loadFallbackPuzzles = function() {
+            // Default minimal set of puzzles if JSON can't be loaded
+            window.fallbackPuzzles = [
+                {
+                    "id": "00023",
+                    "fen": "r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 10",
+                    "moves": "e5f7 e8f7 d5f6 f7g8 f6h7 g8h8 c4f7",
+                    "rating": 1485,
+                    "ratingDeviation": 75,
+                    "themes": "advantage crushing deflection long middlegame sacrifice"
+                },
+                {
+                    "id": "0007L",
+                    "fen": "r1b1r1k1/pp1n1pbp/2pp2p1/4p2n/2BPP3/2N1BP2/PPQ3PP/2KR3R b - - 2 12",
+                    "moves": "h5f4 e3f4 c8h3 g2h3",
+                    "rating": 1384,
+                    "ratingDeviation": 80,
+                    "themes": "advantage discoveredAttack middlegame pin short"
+                },
+                {
+                    "id": "0009U",
+                    "fen": "8/5pk1/p5p1/P4n2/1P1b4/6Pp/5P1P/3B2K1 w - - 4 47",
+                    "moves": "d1h5 g6g5 h5f3 d4f2",
+                    "rating": 1487,
+                    "ratingDeviation": 80,
+                    "themes": "advantage defensiveMove endgame short"
+                }
+            ];
+            
+            console.log("Using fallback puzzles");
+            return window.fallbackPuzzles;
+        };
+    </script>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    <script src="js/main.js"></script>
+    
+    <script>
+        // Set current date for privacy policy
+        document.getElementById('privacy-date').textContent = new Date().toLocaleDateString();
+        
+        // Modal functionality
+        const modals = {
+            'about-link': 'about-modal',
+            'contact-link': 'contact-modal',
+            'privacy-link': 'privacy-modal'
+        };
+        
+        // Open modal when link is clicked
+        Object.keys(modals).forEach(linkId => {
+            document.getElementById(linkId).addEventListener('click', function(event) {
+                event.preventDefault();
+                document.getElementById(modals[linkId]).style.display = 'block';
+            });
+        });
+        
+        // Close modal when close button is clicked
+        document.querySelectorAll('.close-modal').forEach(closeBtn => {
+            closeBtn.addEventListener('click', function() {
+                this.closest('.modal').style.display = 'none';
+            });
+        });
+        
+        // Close modal when clicking outside the modal content
+        window.addEventListener('click', function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

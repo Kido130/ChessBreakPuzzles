@@ -1,0 +1,8 @@
+RewriteEngine On
+RewriteBase /
+
+# Rewrite for /openings
+RewriteRule ^openings$ openings.html [NC,L]
+
+# Handle 404 errors
+ErrorDocument 404 /index.html 
