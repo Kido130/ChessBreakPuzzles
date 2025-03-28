@@ -1,0 +1,29 @@
+Changes for Opening Display:
+
+1. When showing next move:
+   - Find all lines in the specific opening matching current position
+   - Sort by number of plays
+   - Show top 2 lines with their evaluations
+   - Format: Move (eval)
+
+2. If only 1 line matches:
+   - Keep current behavior (show a correct and an incorrect move)
+   - Use existing move display logic
+   - Keep current styling
+
+3. If 2+ lines match:
+   - Both choices are correct
+   - Show evaluations next to moves
+   - Use neutral styling for both options
+   - Let user pick which line to continue
+   - Keep teaching the chosen line (Using #1 logic)
+
+4. Remove:
+        Whatever you need to match if you need to.
+
+Key Changes:
+- Show top 2 lines by plays
+- Both choices valid if multiple lines exist
+- Fallback to current logic if only 1 line
+- Continue with chosen line for entire session
+- Show evaluations with moves

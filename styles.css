@@ -1,0 +1,438 @@
+/* ========== Global Styles ========== */
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #2e2a24;
+  color: #bababa;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Hide scrollbars but allow scrolling */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+*::-webkit-scrollbar {
+  width: 0;
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* ========== Header ========== */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.8vh 3.6vw;
+  background-color: #252220;
+  box-shadow: 0 0.2vh 0.5vh rgba(0, 0, 0, 0.2);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+}
+
+.title-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 2.76vh;
+}
+
+.subtitle {
+  font-size: 1.5vh;
+  color: #8a8a8a;
+  margin-top: 0.3vh;
+}
+
+.nav-links {
+  display: flex;
+  margin-left: 3.6vw;
+}
+
+.nav-links a {
+  color: #bababa;
+  text-decoration: none;
+  margin-right: 2.4vw;
+  font-size: 1.8vh;
+  padding: 0.6vh 0;
+  transition: color 0.2s;
+}
+
+.nav-links a:hover {
+  color: #fff;
+}
+
+.user-info {
+  display: flex;
+  gap: 2.4vw;
+  font-size: 1.8vh;
+}
+
+/* ========== Layout ========== */
+.main-container {
+  display: flex;
+  flex-grow: 1;
+  height: calc(100vh - 8.4vh);
+  overflow: hidden;
+}
+
+.left-ad,
+.right-ad {
+  width: 22%;
+  background-color: #302e2c;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.center-panel {
+  flex-grow: 1;
+  max-width: 56%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2vh 0;
+  overflow-y: auto;
+}
+
+/* ========== Board & Puzzle Info ========== */
+#board-container {
+  position: relative;
+  width: 43vw;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+#myBoard {
+  width: 100%;
+  margin: 0 auto;
+  box-shadow: 0 0.5vh 1.5vh rgba(0, 0, 0, 0.4);
+}
+
+.puzzle-info-panel {
+  width: 43vw;
+  max-width: 600px;
+  background-color: #302e2c;
+  border-radius: 0.5vh;
+  padding: 1.5vh;
+  margin-top: 1.5vh;
+  box-shadow: 0 0.2vh 0.5vh rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+
+.puzzle-details {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1vh;
+}
+
+#turn-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6vh 1vw;
+  border-radius: 0.4vh;
+  font-size: 2vh;
+  color: white;
+  z-index: 50;
+}
+
+.turn-indicator .piece-icon {
+  width: 2.2vh;
+  height: 2.2vh;
+  margin-right: 0.6vw;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.white-turn {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18'><circle cx='9' cy='9' r='8' fill='white' stroke='black' stroke-width='1'/></svg>");
+}
+
+.black-turn {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18'><circle cx='9' cy='9' r='8' fill='black' stroke='white' stroke-width='1'/></svg>");
+}
+
+/* ========== Controls & Buttons ========== */
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 1.5vw;
+  margin-top: 2vh;
+  position: relative;
+  flex-wrap: wrap;
+}
+
+.action-button {
+  padding: 1vh 2vw;
+  background-color: #4a4542;
+  color: white;
+  border: none;
+  border-radius: 0.5vh;
+  cursor: pointer;
+  font-size: 1.5vh;
+  text-align: center;
+  transition: background-color 0.3s ease;
+}
+
+.action-button:hover {
+  background-color: #7d7e7a;
+}
+
+#cancel-countdown {
+  background-color: #4a4542;
+  color: white;
+  border: none;
+  border-radius: 0.5vh;
+  padding: 0.8vh 1.6vh;
+  margin-top: 1vh;
+  cursor: pointer;
+  font-size: 1.8vh;
+}
+
+#cancel-countdown:hover {
+  background-color: #7d7e7a;
+}
+
+/* ========== Success / Failure Indicators ========== */
+#success-message {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  padding: 3vh 4vw;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 3vh;
+  z-index: 1000;
+  display: none;
+  min-width: 200px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+#success-message h2 {
+  color: #62ff00;
+  margin: 0 0 1vh 0;
+  font-size: 3.5vh;
+}
+
+#failure-indicator {
+  display: none;
+  position: absolute;
+  left: -8vw;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #c33;
+  font-weight: normal;
+  font-size: 1.8vh;
+}
+
+#countdown-timer {
+  display: block;
+  font-size: 2.4vh;
+  margin-top: 1vh;
+}
+
+/* ========== Rating Changes ========== */
+.rating-change {
+  font-size: 2.4vh;
+  margin: 1vh 0;
+  font-weight: bold;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.rating-change.positive {
+  color: #62ff00;
+}
+
+.rating-change.negative {
+  color: #ff4444;
+}
+
+#user-rating {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  transition: color 0.3s ease;
+}
+
+.rating-change-indicator {
+  position: absolute;
+  right: -30px;
+  font-size: 0.8em;
+  opacity: 1;
+  transition: opacity 0.5s ease;
+}
+
+/* ========== Highlight Styles ========== */
+.highlight-correct {
+  box-shadow: inset 0 0 0.3vh 0.3vh #629924;
+}
+
+.highlight-wrong {
+  box-shadow: inset 0 0 0.3vh 0.3vh #c33;
+}
+
+.highlight-hint {
+  box-shadow: inset 0 0 0.3vh 0.3vh #3498db;
+}
+
+/* ========== Move Indicator ========== */
+.move-indicator {
+  position: absolute;
+  font-size: 3.2vh;
+  opacity: 0;
+  z-index: 100;
+  transform: translate(-50%, -50%);
+  transition: opacity 0.3s;
+}
+
+.move-indicator.visible {
+  opacity: 1;
+}
+
+/* ========== Ads ========== */
+.ad-content {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #848484;
+  font-size: 1.4vh;
+}
+
+/* ========== Modal ========== */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+.modal-content {
+  background-color: #302e2c;
+  margin: 10% auto;
+  padding: 2vh 2vw;
+  width: 70%;
+  max-width: 800px;
+  border-radius: 0.5vh;
+  box-shadow: 0 0.5vh 1.5vh rgba(0, 0, 0, 0.5);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.close-modal {
+  color: #aaa;
+  float: right;
+  font-size: 2.8vh;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.close-modal:hover {
+  color: #fff;
+}
+
+/* ========== Responsive Design ========== */
+@media (max-width: 1100px) {
+  .main-container {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .left-ad,
+  .right-ad {
+    width: 100%;
+    height: 12vh;
+    order: -1;
+  }
+
+  .right-ad {
+    order: 1;
+  }
+
+  .center-panel {
+    order: 0;
+    max-width: 100%;
+  }
+
+  .header {
+    flex-direction: column;
+    gap: 1.2vh;
+    padding: 1.2vh;
+  }
+
+  .header-left {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .nav-links {
+    margin-left: 0;
+    margin-top: 1.2vh;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  #board-container,
+  #myBoard,
+  .puzzle-info-panel {
+    width: 90vw;
+  }
+
+  #failure-indicator {
+    left: 0;
+    top: -3vh;
+    transform: none;
+  }
+}
+
+@media (max-width: 650px) {
+  #board-container,
+  #myBoard,
+  .puzzle-info-panel {
+    width: 90vw;
+    max-width: 320px;
+  }
+
+  .controls {
+    flex-direction: column;
+  }
+
+  .modal-content {
+    width: 90%;
+    margin: 20% auto;
+  }
+
+  #failure-indicator {
+    position: relative;
+    left: 0;
+    top: 0;
+    transform: none;
+    margin-bottom: 1vh;
+  }
+}

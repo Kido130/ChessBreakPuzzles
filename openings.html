@@ -113,7 +113,7 @@
         
         .learning-container {
             display: grid;
-            grid-template-columns: 480px 1fr;
+            grid-template-columns: 624px 1fr;
             grid-gap: 20px;
             margin: 20px auto;
             max-width: 1200px;
@@ -122,13 +122,13 @@
         .board-container {
             position: sticky;
             top: 20px;
-            width: 480px;
-            height: 560px; /* Board height + controls */
+            width: 624px;
+            height: 728px;
         }
         
         .chess-board {
-            width: 480px;
-            height: 480px;
+            width: 624px;
+            height: 624px;
             margin-bottom: 15px;
         }
         
@@ -146,6 +146,8 @@
             border-radius: 5px;
             display: flex;
             flex-direction: column;
+            min-width: 230px;
+            max-width: 230px;
             height: calc(100% - 94px); /* Full height minus learning options height */
         }
         
@@ -813,9 +815,6 @@
         </div>
         <div class="header-right">
             <button id="openingLibraryBtn" class="header-btn">Opening Library</button>
-        </div>
-        <div class="user-info">
-            <div>Progress: <span id="total-progress">0%</span></div>
         </div>
     </div>
     

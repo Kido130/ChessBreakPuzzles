@@ -167,25 +167,31 @@ async function initializeChessboard() {
     });
 }
 
-// Load opening data from JSON file
+// Load opening data from JSON files
 async function loadOpenings() {
     try {
-        console.log('Attempting to load openings from best_chess_openings.json');
+        console.log('Attempting to load openings');
         
-        // Try different paths to find the file
+        // Try different paths to find the opening files
         const possiblePaths = [
-            'best_chess_openings.json', 
-            './best_chess_openings.json', 
-            '../best_chess_openings.json',
-            '/best_chess_openings.json'
+            '', // Current directory
+            './', // Explicit current directory
+            '../', // Parent directory
+            '/' // Root directory
         ];
-        let jsonData = null;
-        let loadedPath = null;
+        
+        let standardOpeningsData = null;
+        let evaluatedOpeningsData = null;
+        let loadedStandardPath = null;
+        let loadedEvaluatedPath = null;
         let lastError = null;
         
-        for (const path of possiblePaths) {
+        // Function to fetch a JSON file with error handling
+        async function fetchJsonFile(basePath, filename) {
+            const path = basePath + filename;
+            console.log(`Trying to load from path: ${path}`);
+            
             try {
-                console.log(`Trying to load from path: ${path}`);
                 const response = await fetch(path, {
                     headers: {
                         'Content-Type': 'application/json',
@@ -196,37 +202,94 @@ async function loadOpenings() {
                 
                 if (!response.ok) {
                     console.log(`Path ${path} failed with status: ${response.status}`);
-                    continue;
+                    return null;
                 }
                 
                 const text = await response.text();
                 if (!text || !text.trim()) {
                     console.log(`Path ${path} returned empty response`);
-                    continue;
+                    return null;
                 }
                 
                 try {
-                    jsonData = JSON.parse(text);
-                    if (jsonData && Object.keys(jsonData).length > 0) {
-                        loadedPath = path;
+                    const data = JSON.parse(text);
+                    if (data && Object.keys(data).length > 0) {
                         console.log(`Successfully loaded from ${path}`);
-                        break;
+                        return { data, path };
                     } else {
                         console.log(`Path ${path} returned invalid JSON`);
+                        return null;
                     }
                 } catch (parseError) {
                     console.error(`Failed to parse JSON from ${path}:`, parseError);
                     lastError = parseError;
+                    return null;
                 }
             } catch (fetchError) {
                 console.warn(`Error trying path ${path}:`, fetchError);
                 lastError = fetchError;
+                return null;
             }
         }
         
-        if (jsonData && Object.keys(jsonData).length > 0) {
-            console.log(`Successfully loaded ${Object.keys(jsonData).length} openings from ${loadedPath}`);
-            allOpenings = jsonData;
+        // Try to load both opening files
+        for (const basePath of possiblePaths) {
+            // Try to load standard openings
+            if (!standardOpeningsData) {
+                const result = await fetchJsonFile(basePath, 'best_chess_openings.json');
+                if (result) {
+                    standardOpeningsData = result.data;
+                    loadedStandardPath = result.path;
+                }
+            }
+            
+            // Try to load evaluated openings
+            if (!evaluatedOpeningsData) {
+                const result = await fetchJsonFile(basePath, 'evaluated_openings.json');
+                if (result) {
+                    evaluatedOpeningsData = result.data;
+                    loadedEvaluatedPath = result.path;
+                }
+            }
+            
+            // If we've loaded both files, we can break out of the loop
+            if (standardOpeningsData && evaluatedOpeningsData) {
+                break;
+            }
+        }
+        
+        // Use standard openings as base
+        if (standardOpeningsData && Object.keys(standardOpeningsData).length > 0) {
+            console.log(`Successfully loaded ${Object.keys(standardOpeningsData).length} standard openings from ${loadedStandardPath}`);
+            allOpenings = standardOpeningsData;
+            
+            // Add evaluations from evaluated openings if available
+            if (evaluatedOpeningsData && Object.keys(evaluatedOpeningsData).length > 0) {
+                console.log(`Successfully loaded ${Object.keys(evaluatedOpeningsData).length} evaluated openings from ${loadedEvaluatedPath}`);
+                
+                // Merge evaluations into the main openings data
+                for (const openingName in evaluatedOpeningsData) {
+                    if (allOpenings[openingName]) {
+                        // Add evaluation to existing opening
+                        allOpenings[openingName].evaluation = evaluatedOpeningsData[openingName].evaluation;
+                        
+                        // Add evaluations to variations if they exist
+                        if (allOpenings[openingName].variations && evaluatedOpeningsData[openingName].variations) {
+                            for (const variationName in evaluatedOpeningsData[openingName].variations) {
+                                if (allOpenings[openingName].variations[variationName]) {
+                                    allOpenings[openingName].variations[variationName].evaluation = 
+                                        evaluatedOpeningsData[openingName].variations[variationName].evaluation;
+                                }
+                            }
+                        }
+                    } else {
+                        // This opening only exists in evaluated_openings.json, add it to allOpenings
+                        allOpenings[openingName] = evaluatedOpeningsData[openingName];
+                    }
+                }
+            } else {
+                console.warn('Evaluated openings data not found, continuing without evaluations.');
+            }
             
             // Update UI after loading data
             updateProgressDisplay();
@@ -377,7 +440,6 @@ function saveUserProgress() {
 function setupEventListeners() {
     // Board control buttons
     elements.playAgainBtn.addEventListener('click', restartCurrentLine);
-    elements.nextMoveBtn.addEventListener('click', playNextMove);
     
     // Move choice buttons
     elements.choiceA.addEventListener('click', () => handleMoveChoice('A'));
@@ -933,8 +995,8 @@ function showOpeningDetails(openingName) {
             document.querySelectorAll('.variation-item').forEach(i => i.classList.remove('selected'));
             item.classList.add('selected');
             selectVariation(item.getAttribute('data-variation'));
+            });
         });
-    });
     
     // Select the main line by default
     document.querySelector('.variation-item').classList.add('selected');
@@ -1411,70 +1473,105 @@ function prepareNextMoveChoices() {
     // Shuffle the color scheme for this move
     shuffleColorScheme();
     
-    // Get the correct next move
-    const correctMove = moveList[currentMoveIndex];
+    // Find all lines in all openings that match the current position
+    const matchingLines = findMatchingLines();
+    console.log('Found matching lines:', matchingLines);
     
-    // Check if this move has been attempted before
-    const moveKey = `${game.fen()}_${correctMove}`;
-    
-    // Initialize tracking structures if needed
-    if (!userProgress.moveAttempts) {
-        userProgress.moveAttempts = {};
-    }
-    if (!userProgress.moveAttempts[currentOpening]) {
-        userProgress.moveAttempts[currentOpening] = {};
-    }
-    if (!userProgress.moveAttempts[currentOpening][currentVariation || 'Main Line']) {
-        userProgress.moveAttempts[currentOpening][currentVariation || 'Main Line'] = {};
-    }
-    
-    // Get the current attempt count
-    const attemptCount = userProgress.moveAttempts[currentOpening][currentVariation || 'Main Line'][moveKey] || 0;
-    
-    // Get the number of correct completions
-    let correctCount = 0;
-            if (userProgress.moveCompletionCounts && 
-                userProgress.moveCompletionCounts[currentOpening] && 
-                userProgress.moveCompletionCounts[currentOpening][currentVariation || 'Main Line'] && 
-                userProgress.moveCompletionCounts[currentOpening][currentVariation || 'Main Line'][moveKey]) {
-        correctCount = userProgress.moveCompletionCounts[currentOpening][currentVariation || 'Main Line'][moveKey];
-    }
-    
-    // Display appropriate message based on completion status
-    if (correctCount === 1) {
-        console.log(`Next move ${correctMove} - Already completed once, needs one more correct attempt`);
-        showMessage(`One more correct attempt needed (1/2 completions) - ${formatSingleMove(correctMove)}`);
-    } else if (attemptCount > 0) {
-        console.log(`Next move ${correctMove} - Previous attempts: ${attemptCount}, Correct: ${correctCount}`);
-        showMessage(`Previous attempts: ${attemptCount}, Correct: ${correctCount} - ${formatSingleMove(correctMove)}`);
-    } else {
-        console.log(`New move ${correctMove} - First attempt`);
-        showMessage('New move - First attempt');
-    }
-    
-    // Get an incorrect move (from another opening or variation)
-    const incorrectMove = getIncorrectMove(correctMove);
-    
-    // Randomly decide which button gets the correct move
-    const correctButton = Math.random() < 0.5 ? 'A' : 'B';
-    
-    // Set up the buttons
-    if (correctButton === 'A') {
-        elements.choiceA.textContent = formatSingleMove(correctMove);
-        elements.choiceA.dataset.move = correctMove;
+    if (matchingLines.length >= 2) {
+        // We have multiple matching lines - implement the new behavior
+        // Take the top 2 lines by popularity
+        const topLines = matchingLines.slice(0, 2);
+        
+        // Set up the buttons with both moves as correct options
+        elements.choiceA.textContent = formatMoveWithEval(topLines[0].nextMove, topLines[0].evaluation);
+        elements.choiceA.dataset.move = topLines[0].nextMove;
         elements.choiceA.dataset.correct = 'true';
+        elements.choiceA.dataset.openingName = topLines[0].opening;
+        elements.choiceA.dataset.variationName = topLines[0].variation;
         
-        elements.choiceB.textContent = formatSingleMove(incorrectMove);
-        elements.choiceB.dataset.move = incorrectMove;
-        elements.choiceB.dataset.correct = 'false';
-    } else {
-        elements.choiceA.textContent = formatSingleMove(incorrectMove);
-        elements.choiceA.dataset.move = incorrectMove;
-        elements.choiceA.dataset.correct = 'false';
-        
-        elements.choiceB.textContent = formatSingleMove(correctMove);
-        elements.choiceB.dataset.move = correctMove;
+        elements.choiceB.textContent = formatMoveWithEval(topLines[1].nextMove, topLines[1].evaluation);
+        elements.choiceB.dataset.move = topLines[1].nextMove;
         elements.choiceB.dataset.correct = 'true';
+        elements.choiceB.dataset.openingName = topLines[1].opening;
+        elements.choiceB.dataset.variationName = topLines[1].variation;
+        
+        // Use neutral styling for both options
+        elements.choiceA.classList.remove('correct', 'incorrect');
+        elements.choiceB.classList.remove('correct', 'incorrect');
+        
+        // Show message about multiple valid continuations
+        showMessage('Multiple valid continuations - choose one to continue');
+    } else {
+        // Use original behavior if 0 or 1 lines match
+        // Get the correct next move
+        const correctMove = moveList[currentMoveIndex];
+        
+        // Check if this move has been attempted before
+        const moveKey = `${game.fen()}_${correctMove}`;
+        
+        // Initialize tracking structures if needed
+        if (!userProgress.moveAttempts) {
+            userProgress.moveAttempts = {};
+        }
+        if (!userProgress.moveAttempts[currentOpening]) {
+            userProgress.moveAttempts[currentOpening] = {};
+        }
+        if (!userProgress.moveAttempts[currentOpening][currentVariation || 'Main Line']) {
+            userProgress.moveAttempts[currentOpening][currentVariation || 'Main Line'] = {};
+        }
+        
+        // Get the current attempt count
+        const attemptCount = userProgress.moveAttempts[currentOpening][currentVariation || 'Main Line'][moveKey] || 0;
+        
+        // Get the number of correct completions
+        let correctCount = 0;
+        if (userProgress.moveCompletionCounts && 
+            userProgress.moveCompletionCounts[currentOpening] && 
+            userProgress.moveCompletionCounts[currentOpening][currentVariation || 'Main Line'] && 
+            userProgress.moveCompletionCounts[currentOpening][currentVariation || 'Main Line'][moveKey]) {
+            correctCount = userProgress.moveCompletionCounts[currentOpening][currentVariation || 'Main Line'][moveKey];
+        }
+        
+        // Display appropriate message based on completion status
+        if (correctCount === 1) {
+            console.log(`Next move ${correctMove} - Already completed once, needs one more correct attempt`);
+            showMessage(`One more correct attempt needed (1/2 completions) - ${formatSingleMove(correctMove)}`);
+        } else if (attemptCount > 0) {
+            console.log(`Next move ${correctMove} - Previous attempts: ${attemptCount}, Correct: ${correctCount}`);
+            showMessage(`Previous attempts: ${attemptCount}, Correct: ${correctCount} - ${formatSingleMove(correctMove)}`);
+        } else {
+            console.log(`New move ${correctMove} - First attempt`);
+            showMessage('New move - First attempt');
+        }
+        
+        // Get an incorrect move (from another opening or variation)
+        const incorrectMove = getIncorrectMove(correctMove);
+        
+        // Randomly decide which button gets the correct move
+        const correctButton = Math.random() < 0.5 ? 'A' : 'B';
+        
+        // Set up the buttons
+        if (correctButton === 'A') {
+            // Add evaluation to the displayed move if available
+            const evaluation = matchingLines.length > 0 ? matchingLines[0].evaluation : null;
+            elements.choiceA.textContent = formatMoveWithEval(correctMove, evaluation);
+            elements.choiceA.dataset.move = correctMove;
+            elements.choiceA.dataset.correct = 'true';
+            
+            elements.choiceB.textContent = formatSingleMove(incorrectMove);
+            elements.choiceB.dataset.move = incorrectMove;
+            elements.choiceB.dataset.correct = 'false';
+        } else {
+            elements.choiceA.textContent = formatSingleMove(incorrectMove);
+            elements.choiceA.dataset.move = incorrectMove;
+            elements.choiceA.dataset.correct = 'false';
+            
+            // Add evaluation to the displayed move if available
+            const evaluation = matchingLines.length > 0 ? matchingLines[0].evaluation : null;
+            elements.choiceB.textContent = formatMoveWithEval(correctMove, evaluation);
+            elements.choiceB.dataset.move = correctMove;
+            elements.choiceB.dataset.correct = 'true';
+        }
     }
     
     // Show the choice buttons only now that we've confirmed it's the user's turn
@@ -1485,7 +1582,9 @@ function prepareNextMoveChoices() {
     // Only draw the arrows after a short delay to ensure animations are complete
     setTimeout(() => {
         // Visualize the moves on the board
-        showMoveOptionsOnBoard(correctMove, incorrectMove);
+        if (elements.choiceA.dataset.move && elements.choiceB.dataset.move) {
+            showMoveOptionsOnBoard(elements.choiceA.dataset.move, elements.choiceB.dataset.move);
+        }
     }, 50);
 }
 
@@ -1524,6 +1623,42 @@ function handleMoveChoice(choice) {
     // Display attempt information
     showMessage(`Attempt #${attemptNumber} - ${isCorrect ? 'Correct!' : 'Incorrect'}`);
     
+    // Check if both moves are correct (multiple lines scenario)
+    const bothCorrect = (elements.choiceA.dataset.correct === 'true' && elements.choiceB.dataset.correct === 'true');
+    
+    // If both options are correct, switch to the chosen line
+    if (bothCorrect) {
+        // Get the opening and variation from the chosen button
+        const newOpeningName = button.dataset.openingName;
+        const newVariationName = button.dataset.variationName;
+        
+        // Only change the current line if we have valid opening/variation data
+        if (newOpeningName && allOpenings[newOpeningName]) {
+            const newOpening = allOpenings[newOpeningName];
+            
+            if (newVariationName === 'Main Line' && newOpening.moves) {
+                // Update to the main line of the chosen opening
+                currentOpening = newOpeningName;
+                currentVariation = 'Main Line';
+                currentLine = newOpening.moves;
+                console.log(`Switched to ${currentOpening} - Main Line`);
+            } else if (newOpening.variations && newOpening.variations[newVariationName] && 
+                       newOpening.variations[newVariationName].moves) {
+                // Update to the chosen variation
+                currentOpening = newOpeningName;
+                currentVariation = newVariationName;
+                currentLine = newOpening.variations[newVariationName].moves;
+                console.log(`Switched to ${currentOpening} - ${currentVariation}`);
+            }
+            
+            // Save the new current line to user progress
+            userProgress.currentOpening = currentOpening;
+            userProgress.currentVariation = currentVariation;
+            userProgress.currentLine = currentLine;
+            saveUserProgress();
+        }
+    }
+    
     // Save progress immediately to ensure attempt is recorded
     saveUserProgress();
     
@@ -1559,98 +1694,76 @@ function handleMoveChoice(choice) {
             // Save progress immediately to ensure move count is stored
             saveUserProgress();
             
-            // Check if the move has now been completed twice (including this time)
-            if (userProgress.moveCompletionCounts[currentOpening][currentVariation || 'Main Line'][moveKey] >= 2) {
-                // Move has been completed at least twice, proceed to next move
+            // If both moves were correct (multiple lines scenario), skip the repetition
+            if (bothCorrect) {
+                // Proceed directly to the next move
                 playNextComputerMove();
-                showMessage('Great! Moving to the next move. (2/2 completions)');
+                showMessage(`Selected line: ${currentOpening} ${currentVariation || 'Main Line'}`);
             } else {
-                // First time completing this move, ask to repeat it
-                showMessage('Good! Let\'s check if you remember this move again. (1/2 completions)');
-                
-                // Store the current position details
-                const prevMoveIndex = currentMoveIndex - 1;
-                console.log('Will reset to move index:', prevMoveIndex);
-                
-                // Reset to the position before this move to repeat it
-                setTimeout(() => {
-                    try {
-                        // First try using undo
-                        game.undo();
-                        console.log('Undo successful');
-                    } catch (e) {
-                        console.warn('Undo failed, rebuilding position', e);
-                        
-                        // If undo fails, rebuild the position
-                        game = new Chess();
-                        const moveList = parseMoves(currentLine);
-                        
-                        // Replay all moves up to the target position
-                        for (let i = 0; i < prevMoveIndex; i++) {
-                            game.move(moveList[i]);
-                        }
-                    }
+                // Check if the move has now been completed twice (including this time)
+                if (userProgress.moveCompletionCounts[currentOpening][currentVariation || 'Main Line'][moveKey] >= 2) {
+                    // Move has been completed at least twice, proceed to next move
+                    playNextComputerMove();
+                    showMessage('Great! Moving to the next move. (2/2 completions)');
+                } else {
+                    // First time completing this move, ask to repeat it
+                    showMessage('Good! Let\'s check if you remember this move again. (1/2 completions)');
                     
-                    // Update board position
-                    board.position(game.fen());
+                    // Store the current position details
+                    const prevMoveIndex = currentMoveIndex - 1;
+                    console.log('Will reset to move index:', prevMoveIndex);
                     
-                    // Reset current move index
-                    currentMoveIndex = prevMoveIndex;
-                    
-                    // Update move history display
-                    updateMoveHistory();
-                    
-                    // Save the updated position with the corrected move index
-                    saveUserProgress();
-                    
-                    // Show choice buttons with a delay to allow animations to complete
+                    // Reset to the position before this move to repeat it
                     setTimeout(() => {
-                        prepareNextMoveChoices();
-                    }, 500);
-                }, 1200);
+                        try {
+                            // First try using undo
+                            game.undo();
+                            console.log('Undo successful');
+                        } catch (e) {
+                            console.error('Failed to undo move:', e);
+                            
+                            // If undo fails, rebuild the position up to the previous move
+                            try {
+                                // Reset and replay up to the previous position
+                                game = new Chess();
+                                const moveList = parseMoves(currentLine);
+                                
+                                for (let i = 0; i < prevMoveIndex; i++) {
+                                    game.move(moveList[i]);
+                                }
+                                console.log('Position rebuild successful');
+                            } catch (e2) {
+                                console.error('Failed to rebuild position:', e2);
+                            }
+                        }
+                        
+                        // Update the board and current move index
+                        board.position(game.fen(), true);
+                        currentMoveIndex = prevMoveIndex;
+                        updateMoveHistory();
+                        
+                        // Show move options again after a short delay
+                        setTimeout(() => {
+                            prepareNextMoveChoices();
+                        }, 500);
+                    }, 1000);
+                }
             }
         }
-        
-        // Use visual feedback that preserves the button's color
-        button.style.boxShadow = '0 0 10px 5px rgba(255, 255, 255, 0.5)';
-        button.style.transform = 'scale(1.05)';
-        
-        // Add to learned moves if not already learned
-        if (!userProgress.learnedMoves[currentOpening]) {
-            userProgress.learnedMoves[currentOpening] = {};
-        }
-        if (!userProgress.learnedMoves[currentOpening][currentVariation || 'Main Line']) {
-            userProgress.learnedMoves[currentOpening][currentVariation || 'Main Line'] = {};
-        }
-        
-        // Mark this move as learned
-        userProgress.learnedMoves[currentOpening][currentVariation || 'Main Line'][moveKey] = true;
-        
-        // Reset visual feedback after a delay
-        setTimeout(() => {
-            button.style.boxShadow = '';
-            button.style.transform = '';
-        }, 700);
     } else {
-        // Clear move visualization after a small delay
-        setTimeout(() => clearMoveVisualization(), 20);
-        
-        // Wrong choice feedback
+        // Incorrect move chosen
         button.classList.add('incorrect');
-        
-        // Show visual cue for correct move
         otherButton.classList.add('correct');
         
-        // Wait a bit before continuing
+        // Play error sound
+        errorSound.play();
+        
+        // Show the error briefly, then reset
         setTimeout(() => {
-            // Clear visual feedback
-            button.classList.remove('incorrect');
-            otherButton.classList.remove('correct');
-            button.style.boxShadow = '';
-            button.style.transform = '';
-            
-            // Continue with normal learning (stay at the same position)
-            prepareNextMoveChoices();
+            // Reset UI
+            elements.choiceA.classList.remove('correct', 'incorrect');
+            elements.choiceB.classList.remove('correct', 'incorrect');
+            elements.choiceA.parentElement.parentElement.style.visibility = 'visible';
         }, 2000);
     }
 }
@@ -1985,11 +2098,97 @@ function updateProgressDisplay() {
 function filterOpenings() {
     const searchTerm = elements.openingSearch.value.toLowerCase();
     
-    // Get all openings sorted by current method
-    const sortMethod = elements.sortByPopularity.classList.contains('active') ? 'popularity' : 'alphabetical';
+    // Check if we're in variation view
+    if (!elements.libraryVariationList.classList.contains('hidden')) {
+        // We're in variation view, filter variations
+        const opening = allOpenings[currentOpening];
+        if (!opening) return;
+
+        // Clear and rebuild variation list
+        elements.libraryVariationList.innerHTML = '';
+        
+        // Add main line if it matches search
+        if ('main line'.includes(searchTerm) || opening.moves.toLowerCase().includes(searchTerm)) {
+            const mainLineItem = document.createElement('div');
+            mainLineItem.className = 'variation-item';
+            let mainLineDesc = descriptions[currentOpening]?.mainLine || "The principal line of the opening with standard piece development.";
+            
+            mainLineItem.innerHTML = `
+                <div class="opening-name">Main Line</div>
+                <div class="opening-plays">${numberWithCommas(opening.plays)} plays</div>
+                <div class="opening-moves">${formatMovesForDisplay(opening.moves)}</div>
+                <div class="opening-description">${mainLineDesc}</div>
+                <div class="item-actions">
+                    <button class="study-btn">Study This Line</button>
+                </div>
+            `;
+            
+            mainLineItem.querySelector('.study-btn').addEventListener('click', () => {
+                currentVariation = 'Main Line';
+                userProgress.currentVariation = currentVariation;
+                currentLine = opening.moves;
+                userProgress.currentLine = currentLine;
+                saveUserProgress();
+                
+                const displayText = `${currentOpening}: Main Line`;
+                elements.currentOpeningDisplay.textContent = displayText;
+                
+                document.getElementById('openingLibraryModal').style.display = 'none';
+                startLearningSession();
+            });
+            
+            elements.libraryVariationList.appendChild(mainLineItem);
+        }
+        
+        // Filter and add variations
+    if (opening.variations) {
+            Object.entries(opening.variations).forEach(([variationName, variation]) => {
+                if (variationName.toLowerCase().includes(searchTerm) || 
+                    variation.moves.toLowerCase().includes(searchTerm)) {
+                    
+                    const variationItem = document.createElement('div');
+                    variationItem.className = 'variation-item';
+                    
+                    let variationDesc = descriptions[currentOpening]?.variations?.[variationName] || 
+                        "An alternative approach to the main line with its own strategic concepts.";
+                    
+                    variationItem.innerHTML = `
+                        <div class="opening-name">${variationName}</div>
+                        <div class="opening-plays">${numberWithCommas(variation.plays)} plays</div>
+                        <div class="opening-moves">${formatMovesForDisplay(variation.moves)}</div>
+                        <div class="opening-description">${variationDesc}</div>
+                        <div class="item-actions">
+                            <button class="study-btn">Study This Line</button>
+                        </div>
+                    `;
+                    
+                    variationItem.querySelector('.study-btn').addEventListener('click', () => {
+                        currentVariation = variationName;
+                        userProgress.currentVariation = currentVariation;
+                        currentLine = variation.moves;
+                        userProgress.currentLine = currentLine;
+                        saveUserProgress();
+                        
+                        const displayText = `${currentOpening}: ${variationName}`;
+                        elements.currentOpeningDisplay.textContent = displayText;
+                        
+                        document.getElementById('openingLibraryModal').style.display = 'none';
+                        startLearningSession();
+                    });
+                    
+                    elements.libraryVariationList.appendChild(variationItem);
+                }
+            });
+        }
+        return;
+    }
+    
+    // We're in opening list view
     let openings = Object.entries(allOpenings)
         .map(([name, data]) => ({ name, totalPlays: data.totalPlays }));
     
+    // Sort based on current method
+    const sortMethod = elements.sortByPopularity.classList.contains('active') ? 'popularity' : 'alphabetical';
     if (sortMethod === 'popularity') {
         openings = openings.sort((a, b) => b.totalPlays - a.totalPlays);
     } else {
@@ -1998,7 +2197,22 @@ function filterOpenings() {
     
     // Filter by search term
     if (searchTerm) {
-        openings = openings.filter(opening => opening.name.toLowerCase().includes(searchTerm));
+        openings = openings.filter(opening => {
+            const openingData = allOpenings[opening.name];
+            // Search in opening name and moves
+            if (opening.name.toLowerCase().includes(searchTerm) || 
+                openingData.moves.toLowerCase().includes(searchTerm)) {
+                return true;
+            }
+            // Search in variation names and moves
+            if (openingData.variations) {
+                return Object.entries(openingData.variations).some(([varName, varData]) => 
+                    varName.toLowerCase().includes(searchTerm) || 
+                    varData.moves.toLowerCase().includes(searchTerm)
+                );
+            }
+            return false;
+        });
     }
     
     // Update display
@@ -2032,32 +2246,6 @@ function restartCurrentLine() {
     if (!currentLine) return;
     
     startLearningSession();
-}
-
-// Play the next move
-function playNextMove() {
-    if (!currentLine) return;
-    
-    const moveList = parseMoves(currentLine);
-    
-    // Check if we're at the end of the line
-    if (currentMoveIndex >= moveList.length) {
-        return;
-    }
-    
-    // Play the next move
-    game.move(moveList[currentMoveIndex]);
-    board.position(game.fen(), true); // true enables animation
-    moveSound.play();
-    currentMoveIndex++;
-    updateMoveHistory();
-    
-    // If we reached the end, complete the line
-    if (currentMoveIndex >= moveList.length) {
-        completeLine();
-    } else {
-        prepareNextMoveChoices();
-    }
 }
 
 // Chess board drag functions
@@ -2300,7 +2488,6 @@ function initializeElements() {
         
         // Board control buttons
         playAgainBtn: document.getElementById('playAgainBtn'),
-        nextMoveBtn: document.getElementById('nextMoveBtn'),
         
         // Control buttons
         openingLibraryBtn: document.getElementById('openingLibraryBtn'),
@@ -2445,4 +2632,113 @@ function openLibraryVariationSelection(openingName) {
             elements.libraryVariationList.appendChild(variationItem);
         });
     }
+}
+
+// Format moves for display
+function formatMovesForDisplay(moves) {
+    if (!moves) return '';
+    const moveList = moves.split(' ');
+    let formattedMoves = '';
+    for (let i = 0; i < moveList.length; i++) {
+        if (i % 2 === 0) {
+            formattedMoves += `${Math.floor(i/2 + 1)}. `;
+        }
+        formattedMoves += moveList[i] + ' ';
+    }
+    return formattedMoves.trim();
+}
+
+// Find all lines in all openings that match the current board position
+function findMatchingLines() {
+    if (!game) return [];
+    
+    const currentFEN = game.fen();
+    const results = [];
+    
+    // Search through all openings
+    for (const openingName in allOpenings) {
+        const opening = allOpenings[openingName];
+        
+        // Check main line
+        if (opening.moves) {
+            const movesArr = parseMoves(opening.moves);
+            // Create a temporary game to replay moves
+            const tempGame = new Chess();
+            
+            // Play moves up to our current position length
+            let matchesPosition = true;
+            for (let i = 0; i < currentMoveIndex && i < movesArr.length; i++) {
+                try {
+                    tempGame.move(movesArr[i]);
+                } catch (e) {
+                    matchesPosition = false;
+                    break;
+                }
+            }
+            
+            // If the position matches and there are more moves to make
+            if (matchesPosition && tempGame.fen() === currentFEN && currentMoveIndex < movesArr.length) {
+                results.push({
+                    opening: openingName,
+                    variation: 'Main Line',
+                    nextMove: movesArr[currentMoveIndex],
+                    plays: opening.plays || 0,
+                    evaluation: opening.evaluation || 0
+                });
+            }
+        }
+        
+        // Check variations
+        if (opening.variations) {
+            for (const variationName in opening.variations) {
+                const variation = opening.variations[variationName];
+                if (variation.moves) {
+                    const movesArr = parseMoves(variation.moves);
+                    // Create a temporary game to replay moves
+                    const tempGame = new Chess();
+                    
+                    // Play moves up to our current position length
+                    let matchesPosition = true;
+                    for (let i = 0; i < currentMoveIndex && i < movesArr.length; i++) {
+                        try {
+                            tempGame.move(movesArr[i]);
+                        } catch (e) {
+                            matchesPosition = false;
+                            break;
+                        }
+                    }
+                    
+                    // If the position matches and there are more moves to make
+                    if (matchesPosition && tempGame.fen() === currentFEN && currentMoveIndex < movesArr.length) {
+                        results.push({
+                            opening: openingName,
+                            variation: variationName,
+                            nextMove: movesArr[currentMoveIndex],
+                            plays: variation.plays || 0,
+                            evaluation: variation.evaluation || 0
+                        });
+                    }
+                }
+            }
+        }
+    }
+    
+    // Sort by number of plays (most popular first)
+    results.sort((a, b) => b.plays - a.plays);
+    
+    return results;
+}
+
+// Format a move with its evaluation
+function formatMoveWithEval(move, evaluation) {
+    if (evaluation === undefined || evaluation === null) {
+        return formatSingleMove(move);
+    }
+    
+    // Format the evaluation to 2 decimal places
+    const evalStr = evaluation.toFixed(2);
+    // Use + sign for positive evaluations
+    const formattedEval = evaluation > 0 ? `+${evalStr}` : evalStr;
+    
+    return `${formatSingleMove(move)} (${formattedEval})`;
 }
