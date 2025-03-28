@@ -113,7 +113,15 @@ async function initializeChessboard() {
             return new Promise((resolve) => {
                 const img = new Image();
                 img.onload = () => resolve(true);
-                img.onerror = () => resolve(false);
+                img.onerror = () => {
+                    // Try with default images if custom fails
+                    if (imageUrl.includes('images/')) {
+                        console.log('Failed to load custom piece:', imageUrl);
+                        resolve(false);
+                    } else {
+                        resolve(true);
+                    }
+                };
                 img.src = imageUrl;
             });
         }
