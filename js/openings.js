@@ -1478,11 +1478,104 @@ function prepareNextMoveChoices() {
     console.log('Found matching lines:', matchingLines);
     
     if (matchingLines.length >= 2) {
-        // We have multiple matching lines - implement the new behavior
-        // Take the top 2 lines by popularity
+        // Get the top 2 lines by number of plays
         const topLines = matchingLines.slice(0, 2);
         
-        // Set up the buttons with both moves as correct options
+        // Check if both lines have the same move
+        if (topLines[0].nextMove === topLines[1].nextMove) {
+            // If moves are the same, use the original logic
+            const correctMove = moveList[currentMoveIndex];
+            
+            // Get attempt info for this move
+            const moveKey = `${game.fen()}_${correctMove}`;
+            
+            // Initialize tracking structures if needed
+            if (!userProgress.moveAttempts) {
+                userProgress.moveAttempts = {};
+            }
+            if (!userProgress.moveAttempts[currentOpening]) {
+                userProgress.moveAttempts[currentOpening] = {};
+            }
+            if (!userProgress.moveAttempts[currentOpening][currentVariation || 'Main Line']) {
+                userProgress.moveAttempts[currentOpening][currentVariation || 'Main Line'] = {};
+            }
+            
+            // Get the current attempt count
+            const attemptCount = userProgress.moveAttempts[currentOpening][currentVariation || 'Main Line'][moveKey] || 0;
+            
+            // Get the number of correct completions
+            let correctCount = 0;
+            if (userProgress.moveCompletionCounts && 
+                userProgress.moveCompletionCounts[currentOpening] && 
+                userProgress.moveCompletionCounts[currentOpening][currentVariation || 'Main Line'] && 
+                userProgress.moveCompletionCounts[currentOpening][currentVariation || 'Main Line'][moveKey]) {
+                correctCount = userProgress.moveCompletionCounts[currentOpening][currentVariation || 'Main Line'][moveKey];
+            }
+            
+            // Display appropriate message based on completion status
+            if (correctCount === 1) {
+                console.log(`Next move ${correctMove} - Already completed once, needs one more correct attempt`);
+                showMessage(`One more correct attempt needed (1/2 completions) - ${formatSingleMove(correctMove)}`);
+            } else if (attemptCount > 0) {
+                console.log(`Next move ${correctMove} - Previous attempts: ${attemptCount}, Correct: ${correctCount}`);
+                showMessage(`Previous attempts: ${attemptCount}, Correct: ${correctCount} - ${formatSingleMove(correctMove)}`);
+            } else {
+                console.log(`New move ${correctMove} - First attempt`);
+                showMessage('New move - First attempt');
+            }
+            
+            // Get an incorrect move (from another opening or variation)
+            const incorrectMove = getIncorrectMove(correctMove);
+            
+            // Randomly decide which button gets the correct move
+            const correctButton = Math.random() < 0.5 ? 'A' : 'B';
+            
+            // Set up the buttons
+            if (correctButton === 'A') {
+                elements.choiceA.textContent = formatMoveWithEval(correctMove, topLines[0].evaluation);
+                elements.choiceA.dataset.move = correctMove;
+                elements.choiceA.dataset.correct = 'true';
+                
+                elements.choiceB.textContent = formatSingleMove(incorrectMove);
+                elements.choiceB.dataset.move = incorrectMove;
+                elements.choiceB.dataset.correct = 'false';
+            } else {
+                elements.choiceA.textContent = formatSingleMove(incorrectMove);
+                elements.choiceA.dataset.move = incorrectMove;
+                elements.choiceA.dataset.correct = 'false';
+                
+                elements.choiceB.textContent = formatMoveWithEval(correctMove, topLines[0].evaluation);
+                elements.choiceB.dataset.move = correctMove;
+                elements.choiceB.dataset.correct = 'true';
+            }
+            
+            // Reset button styling
+            elements.choiceA.classList.remove('correct', 'incorrect');
+            elements.choiceB.classList.remove('correct', 'incorrect');
+            
+            // Show the choice buttons
+            elements.choiceA.parentElement.parentElement.style.visibility = 'visible';
+            return;
+        }
+        
+        // If moves are different, continue with the evaluation-based logic
+        // Determine if any line is significantly worse for the player's color
+        const isWhiteToMove = (currentMoveIndex % 2 === 0);
+        const playerColor = colorPreference === 'both' ? (isWhiteToMove ? 'white' : 'black') : colorPreference;
+        
+        // For white, positive eval is good. For black, negative eval is good
+        const evalMultiplier = playerColor === 'white' ? 1 : -1;
+        
+        // Sort lines by evaluation for the player's color
+        topLines.sort((a, b) => (b.evaluation * evalMultiplier) - (a.evaluation * evalMultiplier));
+        
+        // Check if the second line is significantly worse (0.5 or more) than the best line
+        const evalDiff = Math.abs(topLines[0].evaluation - topLines[1].evaluation);
+        const isSecondLineWorse = evalDiff >= 0.5 && 
+            ((playerColor === 'white' && topLines[1].evaluation < topLines[0].evaluation) ||
+             (playerColor === 'black' && topLines[1].evaluation > topLines[0].evaluation));
+        
+        // Set up the buttons
         elements.choiceA.textContent = formatMoveWithEval(topLines[0].nextMove, topLines[0].evaluation);
         elements.choiceA.dataset.move = topLines[0].nextMove;
         elements.choiceA.dataset.correct = 'true';
@@ -1491,16 +1584,24 @@ function prepareNextMoveChoices() {
         
         elements.choiceB.textContent = formatMoveWithEval(topLines[1].nextMove, topLines[1].evaluation);
         elements.choiceB.dataset.move = topLines[1].nextMove;
-        elements.choiceB.dataset.correct = 'true';
+        elements.choiceB.dataset.correct = !isSecondLineWorse;
         elements.choiceB.dataset.openingName = topLines[1].opening;
         elements.choiceB.dataset.variationName = topLines[1].variation;
         
-        // Use neutral styling for both options
+        // Use neutral styling for both options initially
         elements.choiceA.classList.remove('correct', 'incorrect');
         elements.choiceB.classList.remove('correct', 'incorrect');
         
-        // Show message about multiple valid continuations
-        showMessage('Multiple valid continuations - choose one to continue');
+        // Show appropriate message
+        if (isSecondLineWorse) {
+            showMessage('Choose the best continuation for your color');
+        } else {
+            showMessage('Multiple valid continuations - choose one to continue');
+        }
+        
+        // Show the choice buttons
+        elements.choiceA.parentElement.parentElement.style.visibility = 'visible';
+        return;
     } else {
         // Use original behavior if 0 or 1 lines match
         // Get the correct next move
@@ -1590,6 +1691,9 @@ function prepareNextMoveChoices() {
 
 // Handle the user's move choice
 function handleMoveChoice(choice) {
+    // Update move tracker
+    updateMoveTracker();
+    
     const button = choice === 'A' ? elements.choiceA : elements.choiceB;
     const otherButton = choice === 'A' ? elements.choiceB : elements.choiceA;
     const isCorrect = button.dataset.correct === 'true';
@@ -2254,9 +2358,43 @@ function onDragStart(source, piece, position, orientation) {
     return false;
 }
 
+// Function to update move tracker
+function updateMoveTracker() {
+    const moveTracker = document.getElementById('moveTracker');
+    if (moveTracker) {
+        moveTracker.value = "1";
+        console.log('Move tracker updated to 1'); // Debug log
+    }
+}
+
+// Update the onDrop function to track moves
 function onDrop(source, target) {
-    // Handled by the drag start prevention
-    return 'snapback';
+    // Check if the move is legal
+    const move = game.move({
+        from: source,
+        to: target,
+        promotion: 'q' // Always promote to queen for simplicity
+    });
+
+    // If the move is legal
+    if (move) {
+        // Update move tracker
+        updateMoveTracker();
+        
+        // Play move sound
+        moveSound.play().catch(error => console.log('Error playing sound:', error));
+        
+        // Update the board
+        board.position(game.fen());
+        
+        // If in learning mode, check if the move is correct
+        if (learnMode === 'practice' && currentOpening) {
+            handleMoveChoice(move.san);
+        }
+    }
+    
+    // Return false to prevent the piece from being dropped if the move is illegal
+    return move !== null;
 }
 
 function onSnapEnd() {
