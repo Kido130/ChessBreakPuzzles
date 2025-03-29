@@ -152,23 +152,23 @@ function startCountdown() {
 function customPieceTheme(piece) {
     // Map piece codes to image file paths
     // Image naming convention:
-    // Chess_[piece][color]t45.svg.png
+    // Chess_[piece][color]t45.webp
     // where [piece] is k (king), q (queen), r (rook), b (bishop), n (knight), p (pawn)
     // and [color] is l (light/white) or d (dark/black)
     // t45 indicates the piece is turned 45 degrees
     const pieceMap = {
-        'wK': 'images/Chess_klt45.svg.png', // white king
-        'wQ': 'images/Chess_qlt45.svg.png', // white queen
-        'wR': 'images/Chess_rlt45.svg.png', // white rook
-        'wB': 'images/Chess_blt45.svg.png', // white bishop
-        'wN': 'images/Chess_nlt45.svg.png', // white knight
-        'wP': 'images/Chess_plt45.svg.png', // white pawn
-        'bK': 'images/Chess_kdt45.svg.png', // black king
-        'bQ': 'images/Chess_qdt45.svg.png', // black queen
-        'bR': 'images/Chess_rdt45.svg.png', // black rook
-        'bB': 'images/Chess_bdt45.svg.png', // black bishop
-        'bN': 'images/Chess_ndt45.svg.png', // black knight
-        'bP': 'images/Chess_pdt45.svg.png'  // black pawn
+        'wK': 'images/Chess_klt45.webp', // white king
+        'wQ': 'images/Chess_qlt45.webp', // white queen
+        'wR': 'images/Chess_rlt45.webp', // white rook
+        'wB': 'images/Chess_blt45.webp', // white bishop
+        'wN': 'images/Chess_nlt45.webp', // white knight
+        'wP': 'images/Chess_plt45.webp', // white pawn
+        'bK': 'images/Chess_kdt45.webp', // black king
+        'bQ': 'images/Chess_qdt45.webp', // black queen
+        'bR': 'images/Chess_rdt45.webp', // black rook
+        'bB': 'images/Chess_bdt45.webp', // black bishop
+        'bN': 'images/Chess_ndt45.webp', // black knight
+        'bP': 'images/Chess_pdt45.webp'  // black pawn
     };
     return pieceMap[piece];
 }
