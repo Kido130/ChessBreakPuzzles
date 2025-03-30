@@ -6,12 +6,13 @@
     <meta name="google-adsense-account" content="ca-pub-1901232962883075">
     <title>ChessBreak - Opening Learning System</title>
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <input type="hidden" id="continue" value="0">
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Roboto', sans-serif;
             padding: 0;
-            background-color: #2e2a24;
-            color: #bababa;
+            background-color: #1e1e1e;
+            color: #e0e0e0;
             margin: 0;
             min-height: 100vh;
             display: flex;
@@ -34,7 +35,7 @@
             justify-content: space-between;
             align-items: center;
             padding: 1.8vh 3.6vw;
-            background-color: #252220;
+            background-color: #333;
             box-shadow: 0 0.2vh 0.5vh rgba(0, 0, 0, 0.2);
         }
         
@@ -51,12 +52,13 @@
         
         .header h1 {
             margin: 0;
-            font-size: 2.76vh;
+            font-size: 3vh;
+            color: #fff;
         }
         
         .subtitle {
             font-size: 1.5vh;
-            color: #8a8a8a;
+            color: #aaa;
             margin-top: 0.3vh;
         }
         
@@ -66,7 +68,7 @@
         }
         
         .nav-links a {
-            color: #bababa;
+            color: #e0e0e0;
             text-decoration: none;
             margin-right: 2.4vw;
             font-size: 1.8vh;
@@ -85,17 +87,18 @@
         
         .header-btn {
             padding: 8px 15px;
-            background-color: #3e3932;
-            color: #bababa;
+            background-color: #444;
+            color: #e0e0e0;
             border: none;
             border-radius: 5px;
             cursor: pointer;
             font-size: 14px;
-            transition: background-color 0.3s;
+            transition: background-color 0.3s, transform 0.2s;
         }
         
         .header-btn:hover {
-            background-color: #4e483f;
+            background-color: #555;
+            transform: translateY(-2px);
         }
         
         .user-info {
@@ -109,6 +112,7 @@
             display: flex;
             flex-grow: 1;
             padding: 20px;
+            background-color: #282828;
         }
         
         .learning-container {
@@ -124,35 +128,44 @@
             top: 20px;
             width: 624px;
             height: 728px;
+            background-color: #333;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
         
         .chess-board {
             width: 624px;
             height: 624px;
             margin-bottom: 15px;
+            border-radius: 10px;
+            overflow: hidden;
         }
         
         .info-container {
             display: flex;
             flex-direction: column;
             gap: 20px;
-            max-width: 300px;
-            height: 560px; /* Match the height of board-container */
+            max-width: 350px;
+            height: 600px;
+            background-color: #333;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
         
         .opening-info {
-            background-color: #252220;
+            background-color: #444;
             padding: 15px;
             border-radius: 5px;
             display: flex;
             flex-direction: column;
-            min-width: 230px;
-            max-width: 230px;
-            height: calc(100% - 94px); /* Full height minus learning options height */
+            min-width: 280px;
+            max-width: 280px;
+            height: calc(100% - 74px);
         }
         
         .move-history {
-            height: calc(100% - 60px); /* Adjust for headings */
+            height: calc(100% - 60px);
             overflow-y: auto;
             margin-top: 10px;
             font-family: monospace;
@@ -166,7 +179,7 @@
         }
         
         .move-number {
-            color: #8a8a8a;
+            color: #aaa;
             margin-right: 5px;
         }
         
@@ -175,7 +188,9 @@
             padding: 2px 5px;
             border-radius: 3px;
             margin-right: 5px;
-            margin-bottom: 5px; /* Add space below each move for wrapping */
+            margin-bottom: 5px;
+            background-color: #555;
+            color: #e0e0e0;
         }
         
         .move.played {
@@ -221,10 +236,10 @@
         }
         
         .learning-options {
-            background-color: #252220;
+            background-color: #444;
             padding: 15px;
             border-radius: 5px;
-            height: 64px; /* Fixed height to match bottom controls */
+            height: 64px;
             display: flex;
             align-items: center;
         }
@@ -239,8 +254,8 @@
         .move-choice {
             flex: 1;
             padding: 10px 15px;
-            background-color: #3e3932;
-            color: #bababa;
+            background-color: #555;
+            color: #e0e0e0;
             border: none;
             border-radius: 5px;
             cursor: pointer;
@@ -249,7 +264,8 @@
         }
         
         .move-choice:hover {
-            background-color: #4e483f;
+            background-color: #666;
+            transform: translateY(-2px);
         }
         
         .move-choice.correct {
@@ -264,23 +280,24 @@
             display: flex;
             justify-content: space-between;
             gap: 10px;
-            height: 50px; /* Fixed height for controls */
+            height: 50px;
         }
         
         .control-btn {
             flex: 1;
             padding: 10px 0;
-            background-color: #3e3932;
-            color: #bababa;
+            background-color: #555;
+            color: #e0e0e0;
             border: none;
             border-radius: 5px;
             cursor: pointer;
             font-size: 16px;
-            transition: background-color 0.3s;
+            transition: background-color 0.3s, transform 0.2s;
         }
         
         .control-btn:hover {
-            background-color: #4e483f;
+            background-color: #666;
+            transform: translateY(-2px);
         }
         
         /* Modal styles */
@@ -291,7 +308,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
+            background-color: rgba(0, 0, 0, 0.8);
             z-index: 1000;
             overflow-y: auto;
         }
@@ -302,8 +319,10 @@
             padding: 20px;
             width: 80%;
             max-width: 800px;
-            border-radius: 5px;
+            border-radius: 10px;
             position: relative;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease;
         }
         
         .close-btn {
@@ -336,15 +355,17 @@
         }
         
         .opening-item, .variation-item, .line-item {
-            background-color: #3e3932;
+            background-color: #444;
             padding: 15px;
             border-radius: 5px;
             cursor: pointer;
-            transition: background-color 0.3s;
+            transition: background-color 0.3s, transform 0.2s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
         
         .opening-item:hover, .variation-item:hover, .line-item:hover {
-            background-color: #4e483f;
+            background-color: #555;
+            transform: translateY(-2px);
         }
         
         .opening-name {
@@ -361,35 +382,36 @@
             display: none;
         }
         
-        .sort-options {
-            margin-top: 15px;
+        .search-container {
+            margin: 20px 0;
             display: flex;
-            gap: 10px;
-        }
-        
-        .sort-btn {
-            padding: 8px 15px;
-            background-color: #3e3932;
-            color: #bababa;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        
-        .sort-btn.active {
-            background-color: #5c8b1c;
+            justify-content: center;
+            padding: 0 20px;
         }
         
         #openingSearch {
             width: 100%;
-            max-width: 100%;
-            box-sizing: border-box;
-            padding: 10px;
-            margin-top: 15px;
+            max-width: 600px;
+            padding: 12px 20px;
+            font-size: 16px;
             background-color: #3e3932;
             color: #bababa;
-            border: none;
-            border-radius: 5px;
+            border: 2px solid #4e483f;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        #openingSearch:focus {
+            outline: none;
+            border-color: #5c8b1c;
+            box-shadow: 0 0 0 3px rgba(92, 139, 28, 0.2);
+            background-color: #4e483f;
+        }
+        
+        #openingSearch::placeholder {
+            color: #8a8a8a;
+            opacity: 0.8;
         }
         
         .congrats-content {
@@ -482,13 +504,14 @@
             align-items: center;
             cursor: pointer;
             padding: 8px 15px;
-            background-color: #3e3932;
+            background-color: #444;
             border-radius: 5px;
-            transition: background-color 0.3s;
+            transition: background-color 0.3s, transform 0.2s;
         }
         
         .color-option:hover {
-            background-color: #4e483f;
+            background-color: #555;
+            transform: translateY(-2px);
         }
         
         .color-option input {
@@ -631,19 +654,20 @@
             padding: 10px;
             border-radius: 5px;
             font-size: 16px;
+            background-color: rgba(50, 50, 50, 0.2);
+            color: #888;
+            text-align: center;
         }
         
         .progress-indicator.mastered {
             background-color: rgba(92, 139, 28, 0.2);
             color: #5c8b1c;
             font-weight: bold;
-            text-align: center;
         }
         
         .progress-indicator.in-progress {
             background-color: rgba(181, 118, 78, 0.2);
             color: #bababa;
-            padding: 15px;
         }
         
         .progress-indicator.started {
@@ -778,6 +802,12 @@
             font-weight: bold;
             margin-bottom: 4px;
         }
+        
+        /* Remove sort button styles */
+        .sort-options,
+        .sort-btn {
+            display: none;
+        }
     </style>
     <script>
         // Dynamic sizing based on viewport dimensions
@@ -799,7 +829,6 @@
     </script>
 </head>
 <body>
-    <input type="hidden" id="moveTracker" value="0">
     <div class="header">
         <div class="header-left">
             <div class="title-container">
@@ -824,8 +853,7 @@
             <div class="board-container">
                 <div id="board" class="chess-board"></div>
                 <div class="controls">
-                    <button id="playAgainBtn" class="control-btn">Play Again</button>
-                    <button id="nextMoveBtn" class="control-btn">Next Move</button>
+                    <!-- Removed Play Again and Next Move buttons -->
                 </div>
             </div>
             
@@ -882,10 +910,8 @@
             <div id="currentlyStudying" class="currently-studying">
                 <p>Currently studying: <span id="current-opening-display">None selected</span></p>
             </div>
-            <input type="text" id="openingSearch" placeholder="Search openings...">
-            <div class="sort-options">
-                <button id="sortByPopularity" class="sort-btn active">Sort by Popularity</button>
-                <button id="sortAlphabetically" class="sort-btn">Sort Alphabetically</button>
+            <div class="search-container">
+                <input type="text" id="openingSearch" placeholder="Search openings...">
             </div>
             <div id="libraryOpeningList" class="opening-list"></div>
             <div id="libraryVariationList" class="variation-list hidden"></div>

@@ -24,6 +24,7 @@ let userProgress = {
     moveAttempts: {} // Track all attempts, not just completions
 };
 let moveSound = new Audio('Sounds/Move.MP3');
+let errorSound = new Audio('Sounds/Error.MP3'); // Added error sound
 let colorPreference = 'both'; // Default to both colors
 let currentColor = 'both';
 let learnMode = 'practice';
@@ -446,9 +447,6 @@ function saveUserProgress() {
 
 // Set up event listeners
 function setupEventListeners() {
-    // Board control buttons
-    elements.playAgainBtn.addEventListener('click', restartCurrentLine);
-    
     // Move choice buttons
     elements.choiceA.addEventListener('click', () => handleMoveChoice('A'));
     elements.choiceB.addEventListener('click', () => handleMoveChoice('B'));
@@ -456,10 +454,8 @@ function setupEventListeners() {
     // Modal opening buttons
     elements.openingLibraryBtn.addEventListener('click', openOpeningLibraryModal);
     
-    // Opening search and sort
+    // Opening search
     elements.openingSearch.addEventListener('input', filterOpenings);
-    elements.sortByPopularity.addEventListener('click', () => sortOpenings('popularity'));
-    elements.sortAlphabetically.addEventListener('click', () => sortOpenings('alphabetical'));
     
     // Congratulations modal buttons
     elements.learnAnotherLine.addEventListener('click', () => {
@@ -672,7 +668,10 @@ function populateOpeningSelection(openings, isFirstTime = false) {
     
     elements.openingList.innerHTML = '';
     
-    openings.forEach(opening => {
+    // Filter out openings with less than 100 plays
+    const filteredOpenings = openings.filter(opening => opening.totalPlays >= 100);
+    
+    filteredOpenings.forEach(opening => {
         if (!opening || !opening.name) return;
         
         const openingItem = document.createElement('div');
@@ -695,12 +694,10 @@ function populateOpeningSelection(openings, isFirstTime = false) {
                 progressStatus = `<div class="opening-progress">${completed}/${total} lines (${percentComplete}%)</div>`;
             }
         } else if (userProgress.moveAttempts && userProgress.moveAttempts[opening.name]) {
-            // Check total move attempts
             const totalAttempts = getTotalMoveAttempts(opening.name);
             progressClass = 'opening-started';
             progressStatus = `<div class="opening-progress started">${totalAttempts} moves attempted</div>`;
         } else if (userProgress.learnedMoves && userProgress.learnedMoves[opening.name]) {
-            // Opening started but no lines completed
             const totalMovesTried = getTotalMovesTried(opening.name);
             progressClass = 'opening-started';
             progressStatus = `<div class="opening-progress started">${totalMovesTried} moves learned</div>`;
@@ -732,7 +729,7 @@ function populateOpeningSelection(openings, isFirstTime = false) {
     if (isFirstTime) {
         const title = document.querySelector('#openingSelectionModal h2');
         if (title) {
-            title.textContent = 'Welcome! Select an opening to learn';
+            title.textContent = 'Select an opening to learn';
         }
     }
 }
@@ -776,87 +773,67 @@ function getRecommendedColor(openingName) {
     ];
 
     if (whiteOpenings.some(opening => openingName.includes(opening))) {
-        return "white";
+        return "White";
     } else if (blackOpenings.some(opening => openingName.includes(opening))) {
-        return "black";
+        return "Black";
     }
-    return "both";
+    return "Both";
 }
 
-// Populate the library openings list
+// Populate openings in the library
 function populateLibraryOpenings(openings) {
-    elements.libraryOpeningList.innerHTML = '';
+    const container = elements.libraryOpeningList;
+    container.innerHTML = '';
     
-    openings.forEach(opening => {
+    openings.forEach(({ name, totalPlays }) => {
+        const opening = allOpenings[name];
+        if (!opening) return;
+        
         const openingItem = document.createElement('div');
         openingItem.className = 'opening-item';
         
-        // Check if opening has been started/completed
-        let progressStatus = '';
-        let progressClass = '';
-        
-        if (userProgress.completedLines && userProgress.completedLines[opening.name]) {
-            const completed = Object.keys(userProgress.completedLines[opening.name]).length;
-            const total = getTotalVariationCount(opening.name);
-            
-            if (completed >= total) {
-                progressClass = 'opening-complete';
-                progressStatus = `<div class="opening-progress complete">Mastered</div>`;
-            } else {
-                const percentComplete = Math.round((completed / total) * 100);
-                progressClass = 'opening-in-progress';
-                progressStatus = `<div class="opening-progress">${completed}/${total} lines (${percentComplete}%)</div>`;
-            }
-        } else if (userProgress.moveAttempts && userProgress.moveAttempts[opening.name]) {
-            // Check total move attempts
-            const totalAttempts = getTotalMoveAttempts(opening.name);
-            progressClass = 'opening-started';
-            progressStatus = `<div class="opening-progress started">${totalAttempts} moves attempted</div>`;
-        } else if (userProgress.learnedMoves && userProgress.learnedMoves[opening.name]) {
-            // Opening started but no lines completed
-            const totalMovesTried = getTotalMovesTried(opening.name);
-            progressClass = 'opening-started';
-            progressStatus = `<div class="opening-progress started">${totalMovesTried} moves learned</div>`;
+        // Add status classes
+        if (userProgress.completedOpenings?.includes(name)) {
+            openingItem.classList.add('opening-complete');
+        } else if (userProgress.currentOpening === name) {
+            openingItem.classList.add('opening-in-progress');
+        } else if (userProgress.startedOpenings?.includes(name)) {
+            openingItem.classList.add('opening-started');
         }
         
-        // Get description for the opening
-        let descriptionText = descriptions[opening.name] ? 
-            descriptions[opening.name].description : 
-            generateGenericDescription(opening.name);
+        // Get description for popular openings
+        let description = '';
+        if (totalPlays > 10000) {
+            description = descriptions[name]?.mainLine || "A fundamental opening that forms the basis of many strategic concepts.";
+        }
         
         // Get recommended color
-        const recommendedColor = getRecommendedColor(opening.name);
-        const colorText = recommendedColor !== 'both' ? 
-            `<div class="recommended-color">(recommended as ${recommendedColor})</div>` : '';
+        const recommendedColor = getRecommendedColor(name);
         
         openingItem.innerHTML = `
-            <div class="opening-name">${opening.name}</div>
-            ${colorText}
-            <div class="opening-plays">${opening.totalPlays.toLocaleString()} games played</div>
-            <div class="opening-description">${descriptionText}</div>
-            ${progressStatus}
+            <div class="opening-name">${name}</div>
+            ${recommendedColor ? `<div class="recommended-color">Recommended for: ${recommendedColor}</div>` : ''}
+            <div class="opening-plays">${numberWithCommas(totalPlays)} plays</div>
+            ${description ? `<div class="opening-description">${description}</div>` : ''}
             <div class="item-actions">
-                <button class="study-btn">Study Opening</button>
+                <button class="study-btn">Study This Opening</button>
             </div>
         `;
         
-        // Add click handler for the study button
-        const studyBtn = openingItem.querySelector('.study-btn');
-        studyBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            // Set current opening
-            currentOpening = opening.name;
-            userProgress.currentOpening = opening.name;
+        // Add study button click handler
+        openingItem.querySelector('.study-btn').addEventListener('click', () => {
+            currentOpening = name;
+            userProgress.currentOpening = currentOpening;
             saveUserProgress();
             
             // Hide opening list
             elements.libraryOpeningList.classList.add('hidden');
             
             // Open variation selection
-            openLibraryVariationSelection(opening.name);
+            openLibraryVariationSelection(name);
         });
         
-        elements.libraryOpeningList.appendChild(openingItem);
+        container.appendChild(openingItem);
     });
 }
 
@@ -1051,6 +1028,9 @@ function openVariationSelectionModal(openingName) {
         userProgress.currentLine = currentLine;
         saveUserProgress();
         
+        // Set continue to 1 when variation is selected
+        document.getElementById('continue').value = '1';
+        
         modal.style.display = 'none';
         startLearningSession();
     });
@@ -1078,6 +1058,9 @@ function openVariationSelectionModal(openingName) {
                 currentLine = variation.moves;
                 userProgress.currentLine = currentLine;
                 saveUserProgress();
+                
+                // Set continue to 1 when variation is selected
+                document.getElementById('continue').value = '1';
                 
                 modal.style.display = 'none';
                 startLearningSession();
@@ -1259,20 +1242,34 @@ function showMoveOptionsOnBoard(correctMove, incorrectMove) {
     const correctMoveObj = parseMoveToSourceTarget(correctMove);
     const incorrectMoveObj = parseMoveToSourceTarget(incorrectMove);
     
-    // Determine which color to use for each move
-    const correctColor = isACorrect ? 'optionA' : 'optionB';
-    const incorrectColor = isACorrect ? 'optionB' : 'optionA';
+    // Set button colors first
+    elements.choiceA.style.backgroundColor = moveColors.optionA;
+    elements.choiceB.style.backgroundColor = moveColors.optionB;
     
+    // Set text colors based on background
+    elements.choiceA.style.color = isColorDark(moveColors.optionA) ? '#ffffff' : '#222222';
+    elements.choiceB.style.color = isColorDark(moveColors.optionB) ? '#ffffff' : '#222222';
+    
+    // Force a reflow to ensure colors are applied
+    elements.choiceA.offsetHeight;
+    elements.choiceB.offsetHeight;
+    
+    // Always use optionA color for the first move and optionB for the second move
+    // regardless of which is correct
     if (correctMoveObj) {
-        // Only highlight source square and draw arrow
-        highlightSquare(correctMoveObj.from, correctColor);
-        drawArrow(correctMoveObj.from, correctMoveObj.to, correctColor);
+        const squareEl = document.querySelector(`.square-${correctMoveObj.from}`);
+        if (squareEl) {
+            squareEl.style.boxShadow = `inset 0 0 0.3vh 0.3vh ${moveColors.optionA}`;
+        }
+        drawArrow(correctMoveObj.from, correctMoveObj.to, moveColors.optionA);
     }
     
     if (incorrectMoveObj) {
-        // Only highlight source square and draw arrow
-        highlightSquare(incorrectMoveObj.from, incorrectColor);
-        drawArrow(incorrectMoveObj.from, incorrectMoveObj.to, incorrectColor);
+        const squareEl = document.querySelector(`.square-${incorrectMoveObj.from}`);
+        if (squareEl) {
+            squareEl.style.boxShadow = `inset 0 0 0.3vh 0.3vh ${moveColors.optionB}`;
+        }
+        drawArrow(incorrectMoveObj.from, incorrectMoveObj.to, moveColors.optionB);
     }
 }
 
@@ -1289,16 +1286,8 @@ function clearMoveVisualization() {
     });
 }
 
-// Highlight a square with specified color
-function highlightSquare(square, color) {
-    const squareEl = document.querySelector(`.square-${square}`);
-    if (squareEl) {
-        squareEl.classList.add(`highlight-${color}`);
-    }
-}
-
 // Draw an arrow from source to target square
-function drawArrow(from, to, colorKey) {
+function drawArrow(from, to, color) {
     const boardElement = document.getElementById('board');
     const boardRect = boardElement.getBoundingClientRect();
     const squareSize = boardRect.width / 8;
@@ -1336,16 +1325,15 @@ function drawArrow(from, to, colorKey) {
     arrow.setAttribute("x2", toX);
     arrow.setAttribute("y2", toY);
     
-    // Use the moveColors object for arrow color
-    const arrowColor = moveColors[colorKey];
-    arrow.setAttribute("stroke", arrowColor);
+    // Use the provided color directly
+    arrow.setAttribute("stroke", color);
     arrow.setAttribute("stroke-width", "4");
-    arrow.setAttribute("marker-end", `url(#arrowhead-${colorKey})`);
+    arrow.setAttribute("marker-end", `url(#arrowhead-${color})`);
     
     // Add arrow head
     const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
     const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
-    marker.setAttribute("id", `arrowhead-${colorKey}`);
+    marker.setAttribute("id", `arrowhead-${color}`);
     marker.setAttribute("markerWidth", "10");
     marker.setAttribute("markerHeight", "7");
     marker.setAttribute("refX", "7");
@@ -1355,8 +1343,8 @@ function drawArrow(from, to, colorKey) {
     const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
     polygon.setAttribute("points", "0 0, 10 3.5, 0 7");
     
-    // Use the moveColors object for arrowhead color
-    polygon.setAttribute("fill", arrowColor);
+    // Use the provided color directly
+    polygon.setAttribute("fill", color);
     
     marker.appendChild(polygon);
     defs.appendChild(marker);
@@ -1461,18 +1449,49 @@ function prepareNextMoveChoices() {
         // Take the top 2 lines by popularity
         const topLines = matchingLines.slice(0, 2);
         
-        // Set up the buttons with both moves as correct options
-        elements.choiceA.textContent = formatMoveWithEval(topLines[0].nextMove, topLines[0].evaluation);
-        elements.choiceA.dataset.move = topLines[0].nextMove;
-        elements.choiceA.dataset.correct = 'true';
-        elements.choiceA.dataset.openingName = topLines[0].opening;
-        elements.choiceA.dataset.variationName = topLines[0].variation;
-        
-        elements.choiceB.textContent = formatMoveWithEval(topLines[1].nextMove, topLines[1].evaluation);
-        elements.choiceB.dataset.move = topLines[1].nextMove;
-        elements.choiceB.dataset.correct = 'true';
-        elements.choiceB.dataset.openingName = topLines[1].opening;
-        elements.choiceB.dataset.variationName = topLines[1].variation;
+        // Check if both moves are the same
+        if (topLines[0].nextMove === topLines[1].nextMove) {
+            // If moves are identical, find a move from the opposite side
+            const oppositeMove = getIncorrectMove(topLines[0].nextMove);
+            
+            // Compare evaluations to determine which position is worse
+            if (topLines[0].evaluation < topLines[1].evaluation) {
+                // First line has worse evaluation, replace it with opposite move
+                elements.choiceA.textContent = formatMoveWithEval(oppositeMove);
+                elements.choiceA.dataset.move = oppositeMove;
+                elements.choiceA.dataset.correct = 'false';
+                
+                elements.choiceB.textContent = formatMoveWithEval(topLines[1].nextMove, topLines[1].evaluation);
+                elements.choiceB.dataset.move = topLines[1].nextMove;
+                elements.choiceB.dataset.correct = 'true';
+                elements.choiceB.dataset.openingName = topLines[1].opening;
+                elements.choiceB.dataset.variationName = topLines[1].variation;
+            } else {
+                // Second line has worse evaluation, replace it with opposite move
+                elements.choiceA.textContent = formatMoveWithEval(topLines[0].nextMove, topLines[0].evaluation);
+                elements.choiceA.dataset.move = topLines[0].nextMove;
+                elements.choiceA.dataset.correct = 'true';
+                elements.choiceA.dataset.openingName = topLines[0].opening;
+                elements.choiceA.dataset.variationName = topLines[0].variation;
+                
+                elements.choiceB.textContent = formatMoveWithEval(oppositeMove);
+                elements.choiceB.dataset.move = oppositeMove;
+                elements.choiceB.dataset.correct = 'false';
+            }
+        } else {
+            // Moves are different, use both as correct options
+            elements.choiceA.textContent = formatMoveWithEval(topLines[0].nextMove, topLines[0].evaluation);
+            elements.choiceA.dataset.move = topLines[0].nextMove;
+            elements.choiceA.dataset.correct = 'true';
+            elements.choiceA.dataset.openingName = topLines[0].opening;
+            elements.choiceA.dataset.variationName = topLines[0].variation;
+            
+            elements.choiceB.textContent = formatMoveWithEval(topLines[1].nextMove, topLines[1].evaluation);
+            elements.choiceB.dataset.move = topLines[1].nextMove;
+            elements.choiceB.dataset.correct = 'true';
+            elements.choiceB.dataset.openingName = topLines[1].opening;
+            elements.choiceB.dataset.variationName = topLines[1].variation;
+        }
         
         // Use neutral styling for both options
         elements.choiceA.classList.remove('correct', 'incorrect');
@@ -1560,6 +1579,9 @@ function handleMoveChoice(choice) {
     const otherButton = choice === 'A' ? elements.choiceB : elements.choiceA;
     const isCorrect = button.dataset.correct === 'true';
     const move = button.dataset.move;
+    
+    // Set continue to 1 when a move is made
+    document.getElementById('continue').value = '1';
     
     // Hide choice buttons during animation
     elements.choiceA.parentElement.parentElement.style.visibility = 'hidden';
@@ -1711,7 +1733,7 @@ function handleMoveChoice(choice) {
                         // Show move options again after a short delay
                         setTimeout(() => {
                             prepareNextMoveChoices();
-                        }, 500);
+                        }, 300);
                     }, 1000);
                 }
             }
@@ -2107,7 +2129,7 @@ function filterOpenings() {
         }
         
         // Filter and add variations
-    if (opening.variations) {
+        if (opening.variations) {
             Object.entries(opening.variations).forEach(([variationName, variation]) => {
                 if (variationName.toLowerCase().includes(searchTerm) || 
                     variation.moves.toLowerCase().includes(searchTerm)) {
@@ -2151,15 +2173,8 @@ function filterOpenings() {
     
     // We're in opening list view
     let openings = Object.entries(allOpenings)
-        .map(([name, data]) => ({ name, totalPlays: data.totalPlays }));
-    
-    // Sort based on current method
-    const sortMethod = elements.sortByPopularity.classList.contains('active') ? 'popularity' : 'alphabetical';
-    if (sortMethod === 'popularity') {
-        openings = openings.sort((a, b) => b.totalPlays - a.totalPlays);
-    } else {
-        openings = openings.sort((a, b) => a.name.localeCompare(b.name));
-    }
+        .map(([name, data]) => ({ name, totalPlays: data.totalPlays }))
+        .sort((a, b) => b.totalPlays - a.totalPlays); // Always sort by popularity
     
     // Filter by search term
     if (searchTerm) {
@@ -2183,28 +2198,6 @@ function filterOpenings() {
     
     // Update display
     populateLibraryOpenings(openings);
-}
-
-// Sort openings
-function sortOpenings(method) {
-    if (method === 'popularity') {
-        elements.sortByPopularity.classList.add('active');
-        elements.sortAlphabetically.classList.remove('active');
-    } else {
-        elements.sortByPopularity.classList.remove('active');
-        elements.sortAlphabetically.classList.add('active');
-    }
-    
-    // Re-filter with new sort method
-    filterOpenings();
-}
-
-// Get the total number of variations for an opening
-function getTotalVariationCount(openingName) {
-    if (!allOpenings[openingName]) return 0;
-    
-    // Count main line + all variations
-    return 1 + Object.keys(allOpenings[openingName].variations || {}).length;
 }
 
 // Restart the current line
@@ -2249,14 +2242,9 @@ function shuffleColorScheme() {
     // Select a random color pair
     const randomPair = colorPairs[Math.floor(Math.random() * colorPairs.length)];
     
-    // Randomly swap the colors
-    if (Math.random() > 0.5) {
-        moveColors.optionA = randomPair[0];
-        moveColors.optionB = randomPair[1];
-    } else {
-        moveColors.optionA = randomPair[1];
-        moveColors.optionB = randomPair[0];
-    }
+    // Always use the same order for consistency
+    moveColors.optionA = randomPair[0];
+    moveColors.optionB = randomPair[1];
     
     // Update the button colors
     if (elements.choiceA && elements.choiceB) {
@@ -2281,81 +2269,21 @@ function isColorDark(hexColor) {
 // Add this new function to load opening descriptions
 async function loadOpeningDescriptions() {
     try {
-        const response = await fetch('opening_descriptions.json');
-        const data = await response.json();
-        descriptions = data.openings;
-        console.log('Loaded opening descriptions:', descriptions);
+        const response = await fetch('docs/opening_descriptions.txt');
+        const text = await response.text();
+        const lines = text.split('\n').filter(line => line.trim());
         
-        // Add additional descriptions for openings that might not be in the file
-        const additionalDescriptions = {
-            "Pirc Defense": {
-                "description": "Black allows White to build a strong center with pawns, then undermines it with piece pressure and timely counterattacks."
-            },
-            "Modern Defense": {
-                "description": "Similar to the Pirc, Black develops the king's bishop via fianchetto and allows White to occupy the center before challenging it."
-            },
-            "Alekhine's Defense": {
-                "description": "Black tempts White to advance pawns in pursuit of the knight, aiming to undermine the resulting pawn structure."
-            },
-            "Dutch Defense": {
-                "description": "Black immediately fights for control of the e4 square with f5, creating asymmetrical positions with distinct pawn structures."
-            },
-            "Grünfeld Defense": {
-                "description": "Black allows White to establish a strong pawn center, then immediately challenges it with piece pressure and the d5 break."
-            },
-            "Benoni Defense": {
-                "description": "Black concedes central space to White, countering with pressure against White's central pawns from the flanks."
-            },
-            "Benko Gambit": {
-                "description": "Black sacrifices a pawn for long-lasting pressure on White's queenside, aiming for open lines and active piece play."
-            },
-            "Vienna Game": {
-                "description": "White develops the knight before pushing pawns, maintaining flexibility in the center while preparing kingside action."
-            },
-            "King's Gambit": {
-                "description": "White sacrifices a pawn to accelerate development and open lines against Black's king, leading to sharp tactical positions."
-            },
-            "Budapest Gambit": {
-                "description": "Black sacrifices a pawn to develop quickly and create immediate threats against White's center."
-            },
-            "London System": {
-                "description": "White develops pieces to standard squares, creating a solid structure that can be used against various Black setups."
-            },
-            "Catalan Opening": {
-                "description": "White combines d4 with a kingside fianchetto, creating pressure on the central dark squares while maintaining a solid position."
-            },
-            "Réti Opening": {
-                "description": "White controls the center with pieces rather than pawns, preparing for strategic battles based on piece activity."
+        descriptions = {};
+        lines.forEach(line => {
+            const [opening, description] = line.split(':').map(s => s.trim());
+            if (opening && description) {
+                descriptions[opening] = {
+                    mainLine: description
+                };
             }
-        };
-        
-        // Merge with existing descriptions
-        descriptions = {...descriptions, ...additionalDescriptions};
-        
+        });
     } catch (error) {
         console.error('Error loading opening descriptions:', error);
-        
-        // Fallback with some basic descriptions if loading fails
-        descriptions = {
-            "Sicilian Defense": {
-                "description": "Black immediately challenges White's center control, creating asymmetrical positions with dynamic counterplay."
-            },
-            "Italian Game": {
-                "description": "White develops the bishop to an active diagonal, targeting Black's f7 square while preparing castling."
-            },
-            "Queen's Gambit": {
-                "description": "White offers a pawn to control the center, gaining spatial advantage and better piece development."
-            },
-            "French Defense": {
-                "description": "Black establishes a solid pawn chain but initially restricts the king's bishop development."
-            },
-            "King's Indian Defense": {
-                "description": "Black allows White to establish a broad pawn center, then challenges it with piece pressure."
-            },
-            "Ruy Lopez": {
-                "description": "White develops the bishop to apply pressure on Black's knight, creating complex strategic positions."
-            }
-        };
     }
 }
 
@@ -2452,9 +2380,6 @@ function initializeElements() {
         progressText: document.getElementById('progressText'),
         totalProgress: document.getElementById('total-progress'),
         
-        // Board control buttons
-        playAgainBtn: document.getElementById('playAgainBtn'),
-        
         // Control buttons
         openingLibraryBtn: document.getElementById('openingLibraryBtn'),
         
@@ -2473,10 +2398,8 @@ function initializeElements() {
         libraryLineList: document.getElementById('libraryLineList'),
         currentOpeningDisplay: document.getElementById('current-opening-display'),
         
-        // Search and sort
+        // Search
         openingSearch: document.getElementById('openingSearch'),
-        sortByPopularity: document.getElementById('sortByPopularity'),
-        sortAlphabetically: document.getElementById('sortAlphabetically'),
         
         // Congratulations modal buttons
         learnAnotherLine: document.getElementById('learnAnotherLine'),
@@ -2614,36 +2537,26 @@ function formatMovesForDisplay(moves) {
     return formattedMoves.trim();
 }
 
-// Find all lines in all openings that match the current board position
+// Find all lines in all openings that match the current position
 function findMatchingLines() {
-    if (!game) return [];
+    if (!currentLine || !currentMoveIndex) return [];
     
-    const currentFEN = game.fen();
+    const currentMoves = parseMoves(currentLine).slice(0, currentMoveIndex);
     const results = [];
     
     // Search through all openings
     for (const openingName in allOpenings) {
+        // Stop if we hit a different opening name
+        if (openingName !== currentOpening) break;
+        
         const opening = allOpenings[openingName];
         
         // Check main line
         if (opening.moves) {
             const movesArr = parseMoves(opening.moves);
-            // Create a temporary game to replay moves
-            const tempGame = new Chess();
-            
-            // Play moves up to our current position length
-            let matchesPosition = true;
-            for (let i = 0; i < currentMoveIndex && i < movesArr.length; i++) {
-                try {
-                    tempGame.move(movesArr[i]);
-                } catch (e) {
-                    matchesPosition = false;
-                    break;
-                }
-            }
-            
-            // If the position matches and there are more moves to make
-            if (matchesPosition && tempGame.fen() === currentFEN && currentMoveIndex < movesArr.length) {
+            // Check if moves match up to current index
+            if (movesArr.slice(0, currentMoveIndex).every((move, i) => move === currentMoves[i]) && 
+                currentMoveIndex < movesArr.length) {
                 results.push({
                     opening: openingName,
                     variation: 'Main Line',
@@ -2660,22 +2573,9 @@ function findMatchingLines() {
                 const variation = opening.variations[variationName];
                 if (variation.moves) {
                     const movesArr = parseMoves(variation.moves);
-                    // Create a temporary game to replay moves
-                    const tempGame = new Chess();
-                    
-                    // Play moves up to our current position length
-                    let matchesPosition = true;
-                    for (let i = 0; i < currentMoveIndex && i < movesArr.length; i++) {
-                        try {
-                            tempGame.move(movesArr[i]);
-                        } catch (e) {
-                            matchesPosition = false;
-                            break;
-                        }
-                    }
-                    
-                    // If the position matches and there are more moves to make
-                    if (matchesPosition && tempGame.fen() === currentFEN && currentMoveIndex < movesArr.length) {
+                    // Check if moves match up to current index
+                    if (movesArr.slice(0, currentMoveIndex).every((move, i) => move === currentMoves[i]) && 
+                        currentMoveIndex < movesArr.length) {
                         results.push({
                             opening: openingName,
                             variation: variationName,
