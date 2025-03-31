@@ -35,9 +35,6 @@ build/
 # Large data files
 *.csv
 *.dat
-*.txt
-!docs/opening_descriptions.txt
-!puzzles.txt
 
 # Project specific
 trash/ 
