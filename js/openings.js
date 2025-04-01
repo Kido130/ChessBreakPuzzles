@@ -1479,7 +1479,7 @@ function prepareNextMoveChoices() {
         if (topLines[0].nextMove === topLines[1].nextMove) {
             // If moves are identical, find a move from the opposite side
             const oppositeMove = getIncorrectMove(topLines[0].nextMove);
-            
+     // j       
             // Compare evaluations to determine which position is worse
             if (topLines[0].evaluation < topLines[1].evaluation) {
                 // First line has worse evaluation, replace it with opposite move
