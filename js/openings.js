@@ -532,94 +532,71 @@ function getTopOpenings(count) {
 // Load the user's saved opening state
 function loadSavedOpening() {
     if (!userProgress.currentOpening || !allOpenings[userProgress.currentOpening]) {
-        openOpeningSelectionModal();
+        console.log('No saved opening found, starting fresh');
         return;
     }
-
-    currentOpening = userProgress.currentOpening;
     
-    if (userProgress.currentVariation) {
-        currentVariation = userProgress.currentVariation;
+    // Initialize the cache with the current opening's variations
+    lineCache = {
+        currentLine: userProgress.currentLine,
+        variations: {},
+        incorrectMoves: {},
+        lastUpdated: new Date()
+    };
+    
+    // Store variations of the current line
+    const opening = allOpenings[userProgress.currentOpening];
+    if (opening) {
+        // Store main line
+        lineCache.variations['Main Line'] = {
+            moves: opening.moves,
+            evaluation: opening.evaluation
+        };
+        
+        // Store other variations
+        if (opening.variations) {
+            for (const [varName, varData] of Object.entries(opening.variations)) {
+                lineCache.variations[varName] = {
+                    moves: varData.moves,
+                    evaluation: varData.evaluation
+                };
+            }
+        }
     }
     
-    if (userProgress.currentLine) {
-        currentLine = userProgress.currentLine;
+    console.log('Line cache initialized in loadSavedOpening:', lineCache);
+    
+    // Set the current opening and variation
+    currentOpening = userProgress.currentOpening;
+    currentVariation = userProgress.currentVariation;
+    currentLine = userProgress.currentLine;
+    
+    // Update the UI to show the current opening
+    elements.currentOpeningName.textContent = currentOpening;
+    elements.currentVariation.textContent = currentVariation || 'Main Line';
+    
+    // Update the current opening display in the library modal
+    if (elements.currentOpeningDisplay) {
+        const displayText = currentVariation ? 
+            `${currentOpening}: ${currentVariation}` : 
+            `${currentOpening}: Main Line`;
+        elements.currentOpeningDisplay.textContent = displayText;
+    }
+    
+    // If we have a saved position, restore it
+    if (userProgress.currentPosition) {
+        game = new Chess();
+        game.load(userProgress.currentPosition);
+        board.position(game.fen());
         
-        // Load review state
-        inReviewMode = userProgress.inReviewMode || false;
-        currentReviewMoves = userProgress.currentReviewMoves || [];
-        currentReviewIndex = userProgress.currentReviewIndex || 0;
-        movesSinceLastReview = userProgress.movesSinceLastReview || 0;
-        
-        // If there's a saved position, restore it directly
-        if (userProgress.currentPosition) {
-            game = new Chess();
-            if (!game.load(userProgress.currentPosition)) {
-                console.error('Failed to load saved position:', userProgress.currentPosition);
-                game.reset(); // Reset to starting position if load fails
-            }
-            // Force board update
-            if (board) {
-                board.position(game.fen(), false); // Update position without animation
-            } else {
-                console.error('Board not initialized');
-                initializeChessboard();
-            }
-            currentMoveIndex = userProgress.currentMoveIndex || 0;
-            
-            // After a short delay to let the board set up, check move completion status
-            setTimeout(() => {
-                const moveList = parseMoves(currentLine);
-                if (userProgress.currentMoveIndex < moveList.length) {
-                    const nextMove = moveList[userProgress.currentMoveIndex];
-                    const moveKey = `${game.fen()}_${nextMove}`;
-                    
-                    // Check if this move has been attempted before
-                    let correctCount = 0;
-                    let attemptCount = 0;
-                    
-                    // Get completion count
-                    if (userProgress.moveCompletionCounts && 
-                        userProgress.moveCompletionCounts[currentOpening] && 
-                        userProgress.moveCompletionCounts[currentOpening][currentVariation || 'Main Line'] && 
-                        userProgress.moveCompletionCounts[currentOpening][currentVariation || 'Main Line'][moveKey]) {
-                        correctCount = userProgress.moveCompletionCounts[currentOpening][currentVariation || 'Main Line'][moveKey];
-                    }
-                    
-                    // Get attempt count
-                    if (userProgress.moveAttempts && 
-                        userProgress.moveAttempts[currentOpening] && 
-                        userProgress.moveAttempts[currentOpening][currentVariation || 'Main Line'] && 
-                        userProgress.moveAttempts[currentOpening][currentVariation || 'Main Line'][moveKey]) {
-                        attemptCount = userProgress.moveAttempts[currentOpening][currentVariation || 'Main Line'][moveKey];
-                    }
-                    
-                    // Prepare next move choices
-                    prepareNextMoveChoices();
-                }
-            }, 200);
-        } else if (typeof userProgress.currentMoveIndex === 'number') {
-            // Fallback to old method if no saved position
-            startLearningSession(userProgress.currentMoveIndex);
-        } else {
-            startLearningSession(0);
-        }
+        // Update move history and prepare next move
+        updateMoveHistory();
+        prepareNextMoveChoices();
+    } else if (typeof userProgress.currentMoveIndex === 'number') {
+        // Fallback to old method if no saved position
+        startLearningSession(userProgress.currentMoveIndex);
     } else {
-        // If no current line, use main line of the opening instead of showing selection modal
-        currentVariation = 'Main Line';
-        userProgress.currentVariation = currentVariation;
-        
-        // Get main line moves from the opening
-        const opening = allOpenings[currentOpening];
-        if (opening && opening.moves) {
-            currentLine = opening.moves;
-            userProgress.currentLine = currentLine;
-            saveUserProgress();
-            startLearningSession(0);
-        } else {
-            // Only show modal if we couldn't load a valid main line
-            openVariationSelectionModal(currentOpening);
-        }
+        startLearningSession(0);
     }
 }
 
@@ -1577,7 +1554,6 @@ function prepareNextMoveChoices() {
             correctCount = userProgress.moveCompletionCounts[currentOpening][currentVariation || 'Main Line'][moveKey];
         }
         
-
         // Get an incorrect move (from another opening or variation)
         const incorrectMove = getIncorrectMove(correctMove);
         
