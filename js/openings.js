@@ -49,9 +49,27 @@ let currentReviewIndex = 0; // Index in the review moves
 // DOM Elements - Initialize after DOM is loaded
 let elements = {};
 
+// Cache for storing the current line being studied and its variations
+let lineCache = {
+    currentLine: null,
+    variations: {}, // Stores variations of the current line
+    incorrectMoves: {}, // Stores incorrect moves for each position
+    lastUpdated: null
+};
+
 // Initialize the system
 document.addEventListener('DOMContentLoaded', async () => {
     console.log('DOM fully loaded');
+    
+    // Log the current file contents
+    console.log('Current file contents:', {
+        currentOpening,
+        currentVariation,
+        currentLine,
+        currentMoveIndex,
+        lineCache,
+        userProgress
+    });
     
     // Initialize DOM element references
     initializeElements();
@@ -1085,11 +1103,42 @@ function openVariationSelectionModal(openingName) {
 }
 
 // Start the learning session for the current opening/variation
-function startLearningSession(savedMoveIndex = 0) {
+function startLearningSession(savedMoveIndex = 0, nextMoveOptions = null) {
     if (!currentOpening || !currentLine) {
         console.error('No opening or line selected');
         return;
     }
+    
+    // Reset cache when starting new session
+    lineCache = {
+        currentLine: currentLine,
+        variations: {},
+        incorrectMoves: {},
+        lastUpdated: new Date()
+    };
+    
+    // Store variations of the current line
+    const opening = allOpenings[currentOpening];
+    if (opening) {
+        // Store main line
+        lineCache.variations['Main Line'] = {
+            moves: opening.moves,
+            evaluation: opening.evaluation
+        };
+        
+        // Store other variations
+        if (opening.variations) {
+            for (const [varName, varData] of Object.entries(opening.variations)) {
+                lineCache.variations[varName] = {
+                    moves: varData.moves,
+                    evaluation: varData.evaluation
+                };
+            }
+        }
+    }
+    
+    // Log the cache after initialization
+    console.log('Line cache initialized:', lineCache);
     
     // Update display
     elements.currentOpeningName.textContent = currentOpening;
@@ -1534,28 +1583,33 @@ function prepareNextMoveChoices() {
         
         // Randomly decide which button gets the correct move
         const correctButton = Math.random() < 0.5 ? 'A' : 'B';
+        console.log('Random button selection:', correctButton, 'will contain correct move');
         
-        // Set up the buttons
+        // Set up the buttons with randomized positions
         if (correctButton === 'A') {
             // Add evaluation to the displayed move if available
             const evaluation = matchingLines.length > 0 ? matchingLines[0].evaluation : null;
             elements.choiceA.textContent = formatMoveWithEval(correctMove, evaluation);
             elements.choiceA.dataset.move = correctMove;
             elements.choiceA.dataset.correct = 'true';
+            console.log('Button A set to correct move:', correctMove);
             
             elements.choiceB.textContent = formatSingleMove(incorrectMove);
             elements.choiceB.dataset.move = incorrectMove;
             elements.choiceB.dataset.correct = 'false';
+            console.log('Button B set to incorrect move:', incorrectMove);
         } else {
             elements.choiceA.textContent = formatSingleMove(incorrectMove);
             elements.choiceA.dataset.move = incorrectMove;
             elements.choiceA.dataset.correct = 'false';
+            console.log('Button A set to incorrect move:', incorrectMove);
             
             // Add evaluation to the displayed move if available
             const evaluation = matchingLines.length > 0 ? matchingLines[0].evaluation : null;
             elements.choiceB.textContent = formatMoveWithEval(correctMove, evaluation);
             elements.choiceB.dataset.move = correctMove;
             elements.choiceB.dataset.correct = 'true';
+            console.log('Button B set to correct move:', correctMove);
         }
     }
     
@@ -1800,6 +1854,17 @@ function playNextComputerMove() {
 
 // Complete the current line
 function completeLine() {
+    // Reset only the lineCache when completing line
+    lineCache = {
+        currentLine: null,
+        variations: {},
+        incorrectMoves: {},
+        lastUpdated: null
+    };
+    
+    // Log the cache reset
+    console.log('Line cache reset after completing line');
+    
     // Hide choice buttons
     elements.choiceA.parentElement.parentElement.style.visibility = 'hidden';
     
@@ -1841,24 +1906,29 @@ function completeLine() {
 
 // Get an incorrect move for the learning options
 function getIncorrectMove(correctMove) {
-    // Get a move from a different opening or variation
+    // First check if we have cached incorrect moves for this position
+    const positionKey = game.fen();
+    console.log('Checking cache for position:', positionKey);
+    
+    if (lineCache.incorrectMoves[positionKey]) {
+        const incorrectMoves = lineCache.incorrectMoves[positionKey];
+        // Filter out the correct move
+        const availableMoves = incorrectMoves.filter(move => move !== correctMove);
+        if (availableMoves.length > 0) {
+            console.log('Using cached incorrect move');
+            return availableMoves[Math.floor(Math.random() * availableMoves.length)];
+        }
+    }
+    
+    // If no cached moves or all were used, generate new ones
     const allMoves = [];
     
-    for (const openingName in allOpenings) {
-        if (openingName !== currentOpening) {
-            const opening = allOpenings[openingName];
-            const mainLineMoves = parseMoves(opening.moves);
-            if (mainLineMoves.length > 0) {
-                allMoves.push(mainLineMoves[0]); // Use the first move
-            }
-            
-            // Add moves from variations
-            for (const variationName in opening.variations) {
-                const variation = opening.variations[variationName];
-                const variationMoves = parseMoves(variation.moves);
-                if (variationMoves.length > 0) {
-                    allMoves.push(variationMoves[0]);
-                }
+    // Get moves from other variations of the current line
+    for (const [varName, varData] of Object.entries(lineCache.variations)) {
+        if (varName !== currentVariation) {
+            const moves = parseMoves(varData.moves);
+            if (moves.length > 0) {
+                allMoves.push(moves[0]);
             }
         }
     }
@@ -1878,7 +1948,9 @@ function getIncorrectMove(correctMove) {
     });
     
     if (legalMoves.length > 0) {
-        // Return a random incorrect move
+        // Cache these moves for future use
+        lineCache.incorrectMoves[positionKey] = legalMoves;
+        console.log('Cached new incorrect moves for position:', positionKey);
         return legalMoves[Math.floor(Math.random() * legalMoves.length)];
     }
     
@@ -1886,7 +1958,11 @@ function getIncorrectMove(correctMove) {
     const legalMovesInPosition = game.moves({ verbose: true });
     if (legalMovesInPosition.length > 0) {
         const randomMove = legalMovesInPosition[Math.floor(Math.random() * legalMovesInPosition.length)];
-        return randomMove.from + randomMove.to;
+        const move = randomMove.from + randomMove.to;
+        // Cache this move
+        lineCache.incorrectMoves[positionKey] = [move];
+        console.log('Cached random legal move for position:', positionKey);
+        return move;
     }
     
     // Fallback (shouldn't happen)
